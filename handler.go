@@ -63,8 +63,9 @@ func NewWingetSrcHandler(service WingetSrcService) http.Handler {
 
 	r.Get("/packageManifests/{identifier}", func(w http.ResponseWriter, r *http.Request) {
 		identifier := chi.URLParam(r, "identifier")
+		version := r.URL.Query().Get("Version")
 
-		res, err := service.PackageManifests(identifier)
+		res, err := service.PackageManifests(identifier, version)
 		if err != nil {
 			w.Header().Add("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)

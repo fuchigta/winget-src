@@ -2,6 +2,10 @@
 *
 !*.*
 !*/
+*.exe
 
 # yaml
 *.yaml
+!.goreleaser.yaml
+
+dist/

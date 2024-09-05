@@ -1,19 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
 	"gopkg.in/yaml.v2"
 )
-
-type PackageListEntry struct {
-	Provider  string `yaml:"provider"`
-	Id        string `yaml:"id"`
-	Name      string `yaml:"name"`
-	Publisher string `yaml:"publisher"`
-	Token     string `yaml:"token"`
-}
 
 type QueryManifestConditon func(PackageListEntry) bool
 
@@ -70,11 +63,33 @@ func (w WingetSrcRepositoryImpl) QueryManifest(condition QueryManifestConditon) 
 			continue
 		}
 
+		var provider PackageProvider
+
+		switch entry.Provider {
+		case "github":
+			provider = Github{}
+		default:
+			return nil, fmt.Errorf("unknown package provider")
+		}
+
+		versions, err := provider.FetchVersions(entry)
+		if err != nil {
+			return nil, fmt.Errorf("fetch versions: %w", err)
+		}
+
+		manifestVersions := []ManifestVersion{}
+
+		for _, version := range versions {
+			manifestVersions = append(manifestVersions, ManifestVersion{
+				PackageVersion: version.Version,
+			})
+		}
+
 		manifests = append(manifests, Manifest{
 			PackageIdentifier: entry.Id,
 			PackageName:       entry.Name,
 			Publisher:         entry.Publisher,
-			Versions:          []ManifestVersion{},
+			Versions:          manifestVersions,
 		})
 	}
 
@@ -82,24 +97,50 @@ func (w WingetSrcRepositoryImpl) QueryManifest(condition QueryManifestConditon) 
 }
 
 func (w WingetSrcRepositoryImpl) QueryPackageManifests(identifier string) (PackageManifests, error) {
-	condition := ById(identifier)
 	var found PackageListEntry
 	for _, entry := range w.packageList {
-		if condition(entry) {
+		if entry.Id == identifier {
 			found = entry
 			break
 		}
 	}
 
 	if found.Id == "" {
-		return PackageManifests{}, nil
+		return PackageManifests{}, fmt.Errorf("unknown package identifier")
 	}
 
-	// TODO fetch versions
+	var provider PackageProvider
+
+	switch found.Provider {
+	case "github":
+		provider = Github{}
+	default:
+		return PackageManifests{}, fmt.Errorf("unknown package provider")
+	}
+
+	versions, err := provider.FetchVersions(found)
+	if err != nil {
+		return PackageManifests{}, fmt.Errorf("fetch versions: %w", err)
+	}
+
+	pkgManifestVersions := []PackageManifestsVersion{}
+
+	for _, version := range versions {
+		pkgManifestVersions = append(pkgManifestVersions, PackageManifestsVersion{
+			PackageVersion: version.Version,
+			Installers:     version.Installers,
+			DefaultLocale: Locale{
+				PackageName:      found.Name,
+				PackageLocale:    "en-us",
+				Publisher:        found.Publisher,
+				ShortDescription: found.Description,
+			},
+		})
+	}
 
 	return PackageManifests{
 		PackageIdentifier: found.Id,
-		Versions:          []PackageManifestsVersion{},
+		Versions:          pkgManifestVersions,
 	}, nil
 }
 
@@ -114,8 +155,6 @@ func NewWingetSrcRepository(packageListPath string) (WingetSrcRepository, error)
 	if err := yaml.NewDecoder(f).Decode(&packageList); err != nil {
 		return nil, err
 	}
-
-	// TODO fetch versions
 
 	return WingetSrcRepositoryImpl{
 		packageList: packageList,

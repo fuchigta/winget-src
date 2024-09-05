@@ -58,8 +58,9 @@ type Installer struct {
 	Architecture         string
 	InstallerType        string
 	InstallerUrl         string
-	InstallerSha256      string
-	Scope                string
+	InstallerSha256      string                `json:"InstallerSha256,omitempty"`
+	Scope                string                `json:"Scope,omitempty"`
+	NestedInstallerType  string                `json:"NestedInstallerType,omitempty"`
 	NestedInstallerFiles []NestedInstallerFile `json:"NestedInstallerFiles,omitempty"`
 	InstallerSwitches    map[string]string     `json:"InstallerSwitches,omitempty"`
 }

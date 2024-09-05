@@ -1,9 +1,11 @@
 package main
 
+import "fmt"
+
 type WingetSrcService interface {
 	Information() (InformationResponse, error)
 	ManifestSearch(req ManifestSearchRequest) (ManifestSearchResponse, error)
-	PackageManifests(identifier string) (PackageManifestsResponse, error)
+	PackageManifests(identifier string, version string) (PackageManifestsResponse, error)
 }
 
 type WingetSrcServiceImpl struct {
@@ -70,7 +72,27 @@ func (w WingetSrcServiceImpl) ManifestSearch(req ManifestSearchRequest) (Manifes
 	return maniests, nil
 }
 
-func (w WingetSrcServiceImpl) PackageManifests(identifier string) (PackageManifestsResponse, error) {
-	_ = identifier
-	return PackageManifestsResponse{}, nil
+func (w WingetSrcServiceImpl) PackageManifests(identifier string, version string) (PackageManifestsResponse, error) {
+	res, err := w.repository.QueryPackageManifests(identifier)
+	if err != nil {
+		return PackageManifestsResponse{}, err
+	}
+
+	if len(version) != 0 {
+		found := []PackageManifestsVersion{}
+		for _, v := range res.Versions {
+			if v.PackageVersion == version {
+				found = append(found, v)
+				break
+			}
+		}
+
+		if len(found) == 0 {
+			return PackageManifestsResponse{}, fmt.Errorf("%s not found", version)
+		}
+
+		res.Versions = found
+	}
+
+	return PackageManifestsResponse(res), nil
 }
