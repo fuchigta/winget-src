@@ -63,12 +63,8 @@ func (w WingetSrcRepositoryImpl) QueryManifest(condition QueryManifestConditon) 
 			continue
 		}
 
-		var provider PackageProvider
-
-		switch entry.Provider {
-		case "github":
-			provider = Github{}
-		default:
+		provider, err := dispatchProvider(entry)
+		if err != nil {
 			return nil, fmt.Errorf("unknown package provider")
 		}
 
@@ -109,12 +105,8 @@ func (w WingetSrcRepositoryImpl) QueryPackageManifests(identifier string) (Packa
 		return PackageManifests{}, fmt.Errorf("unknown package identifier")
 	}
 
-	var provider PackageProvider
-
-	switch found.Provider {
-	case "github":
-		provider = Github{}
-	default:
+	provider, err := dispatchProvider(found)
+	if err != nil {
 		return PackageManifests{}, fmt.Errorf("unknown package provider")
 	}
 
@@ -142,6 +134,17 @@ func (w WingetSrcRepositoryImpl) QueryPackageManifests(identifier string) (Packa
 		PackageIdentifier: found.Id,
 		Versions:          pkgManifestVersions,
 	}, nil
+}
+
+func dispatchProvider(entry PackageListEntry) (PackageProvider, error) {
+	switch entry.Provider {
+	case "github":
+		return Github{}, nil
+	case "gitlab":
+		return Gitlab{}, nil
+	default:
+		return nil, fmt.Errorf("unknown package provider")
+	}
 }
 
 func NewWingetSrcRepository(packageListPath string) (WingetSrcRepository, error) {

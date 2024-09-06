@@ -6,6 +6,8 @@ type PackageListEntry struct {
 	Name          string `yaml:"name"`
 	Publisher     string `yaml:"publisher"`
 	Description   string `yaml:"description"`
+	Endpoint      string `yaml:"endpoint"`
+	ProjectID     uint   `yaml:"project_id"`
 	Token         string `yaml:"token"`
 	InstallerType string `yaml:"installer_type"`
 }

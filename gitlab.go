@@ -9,25 +9,29 @@ import (
 	"strings"
 )
 
-type Github struct {
+type Gitlab struct {
 }
 
-type githubAsset struct {
-	Name               string `json:"name"`
-	BrowserDownloadUrl string `json:"browser_download_url"`
-	ContentType        string `json:"content_type"`
+type gitlabAssetLink struct {
+	Name     string `json:"name"`
+	Url      string `json:"url"`
+	LinkType string `json:"link_type"`
 }
 
-type githubRelease struct {
-	Name   string        `json:"name"`
-	Assets []githubAsset `json:"assets"`
+type gitlabAssets struct {
+	Links []gitlabAssetLink `json:"links"`
+}
+
+type gitlabRelease struct {
+	Name   string       `json:"name"`
+	Assets gitlabAssets `json:"assets"`
 }
 
 // FetchVersions implements PackageProvider.
-func (g Github) FetchVersions(entry PackageListEntry) ([]Version, error) {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://api.github.com/repos/%s/%s/releases", entry.Publisher, entry.Name), nil)
+func (g Gitlab) FetchVersions(entry PackageListEntry) ([]Version, error) {
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v4/projects/%d/releases", entry.Endpoint, entry.ProjectID), nil)
 	if err != nil {
-		return nil, fmt.Errorf("github releases API: %w", err)
+		return nil, fmt.Errorf("gitlab releases API: %w", err)
 	}
 
 	if len(entry.Token) != 0 {
@@ -36,18 +40,18 @@ func (g Github) FetchVersions(entry PackageListEntry) ([]Version, error) {
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("github releases API: %w", err)
+		return nil, fmt.Errorf("gitlab releases API: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
 		contents, _ := io.ReadAll(res.Body)
-		return nil, fmt.Errorf("github releases API status %d: %s", res.StatusCode, contents)
+		return nil, fmt.Errorf("gitlab releases API status %d: %s", res.StatusCode, contents)
 	}
 
-	releases := []githubRelease{}
+	releases := []gitlabRelease{}
 	if err := json.NewDecoder(res.Body).Decode(&releases); err != nil {
-		return nil, fmt.Errorf("github releases API response decode: %w", err)
+		return nil, fmt.Errorf("gitlab releases API response decode: %w", err)
 	}
 
 	switch entry.InstallerType {
@@ -59,7 +63,7 @@ func (g Github) FetchVersions(entry PackageListEntry) ([]Version, error) {
 
 }
 
-func (g Github) handleZipPortable(entry PackageListEntry, releases []githubRelease) ([]Version, error) {
+func (g Gitlab) handleZipPortable(entry PackageListEntry, releases []gitlabRelease) ([]Version, error) {
 	versions := []Version{}
 
 	for _, release := range releases {
@@ -67,10 +71,10 @@ func (g Github) handleZipPortable(entry PackageListEntry, releases []githubRelea
 
 		checksums := map[string]string{}
 
-		for _, asset := range release.Assets {
-			lname := strings.ToLower(asset.Name)
-			if strings.Contains(lname, "checksum") && strings.Contains(asset.ContentType, "text/plain") {
-				checkSumRes, err := http.Get(asset.BrowserDownloadUrl)
+		for _, link := range release.Assets.Links {
+			lname := strings.ToLower(link.Name)
+			if strings.Contains(lname, "checksum") {
+				checkSumRes, err := http.Get(link.Url)
 				if err != nil {
 					return nil, fmt.Errorf("checksum download: %w", err)
 				}
@@ -112,7 +116,7 @@ func (g Github) handleZipPortable(entry PackageListEntry, releases []githubRelea
 				continue
 			}
 
-			checksum, ok := checksums[asset.Name]
+			checksum, ok := checksums[link.Name]
 			if !ok {
 				checksum = ""
 			}
@@ -120,7 +124,7 @@ func (g Github) handleZipPortable(entry PackageListEntry, releases []githubRelea
 			installers = append(installers, Installer{
 				Architecture:        arch,
 				InstallerType:       "zip",
-				InstallerUrl:        asset.BrowserDownloadUrl,
+				InstallerUrl:        link.Url,
 				InstallerSha256:     checksum,
 				Scope:               "user",
 				NestedInstallerType: "portable",
@@ -145,4 +149,4 @@ func (g Github) handleZipPortable(entry PackageListEntry, releases []githubRelea
 	return versions, nil
 }
 
-var _ PackageProvider = Github{}
+var _ PackageProvider = Gitlab{}
