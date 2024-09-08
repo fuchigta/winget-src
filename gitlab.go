@@ -35,7 +35,7 @@ func (g Gitlab) FetchVersions(entry PackageListEntry) ([]Version, error) {
 	}
 
 	if len(entry.Token) != 0 {
-		req.Header.Add("Authorization", fmt.Sprintf("token %s", entry.Token))
+		req.Header.Add("PRIVATE-TOKEN", entry.Token)
 	}
 
 	res, err := http.DefaultClient.Do(req)
