@@ -3,7 +3,7 @@ module github.com/fuchigta/winget-src
 go 1.21.4
 
 require (
-	github.com/go-chi/chi/v5 v5.1.0
+	github.com/go-chi/chi/v5 v5.2.2
 	gopkg.in/yaml.v2 v2.4.0
 )
 
