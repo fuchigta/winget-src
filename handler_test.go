@@ -64,6 +64,18 @@ func TestHandler_Information(t *testing.T) {
 	}
 }
 
+func TestHandler_Information_ServiceError(t *testing.T) {
+	svc := mockService{err: fmt.Errorf("service error")}
+	handler := NewWingetSrcHandler(svc)
+	req := httptest.NewRequest(http.MethodGet, "/information", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500, got %d", w.Code)
+	}
+}
+
 func TestHandler_ManifestSearch_Success(t *testing.T) {
 	svc := mockService{
 		searchResp: ManifestSearchResponse{

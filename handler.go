@@ -31,7 +31,16 @@ func NewWingetSrcHandler(service WingetSrcService) http.Handler {
 	})
 
 	r.Get("/information", func(w http.ResponseWriter, r *http.Request) {
-		res, _ := service.Information()
+		res, err := service.Information()
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{
+				{
+					ErrorCode:    http.StatusInternalServerError,
+					ErrorMessage: err.Error(),
+				},
+			})
+			return
+		}
 		writeJSON(w, http.StatusOK, DataResponse{Data: res})
 	})
 
