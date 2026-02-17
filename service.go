@@ -87,7 +87,6 @@ func (w WingetSrcServiceImpl) PackageManifests(identifier string, version string
 		for _, v := range res.Versions {
 			if v.PackageVersion == version {
 				found = append(found, v)
-				break
 			}
 		}
 
