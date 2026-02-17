@@ -25,7 +25,7 @@ type githubRelease struct {
 
 // FetchVersions implements PackageProvider.
 func (g Github) FetchVersions(entry PackageListEntry) ([]Version, error) {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://api.github.com/repos/%s/%s/releases", entry.Publisher, entry.Name), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://api.github.com/repos/%s/releases", entry.Id), nil)
 	if err != nil {
 		return nil, fmt.Errorf("github releases API: %w", err)
 	}
