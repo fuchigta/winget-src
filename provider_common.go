@@ -24,44 +24,55 @@ type release struct {
 	Assets []releaseAsset
 }
 
+func detectArch(lname string) (string, bool) {
+	if strings.Contains(lname, "x86_64") || strings.Contains(lname, "x64") {
+		return "x64", true
+	} else if strings.Contains(lname, "i386") || strings.Contains(lname, "x86") {
+		return "x86", true
+	} else if strings.Contains(lname, "arm64") {
+		return "arm64", true
+	}
+	return "", false
+}
+
+func collectChecksums(assets []releaseAsset) (map[string]string, error) {
+	checksums := map[string]string{}
+	for _, asset := range assets {
+		if asset.IsChecksum {
+			cs, err := fetchChecksums(asset.DownloadUrl)
+			if err != nil {
+				return nil, err
+			}
+			for k, v := range cs {
+				checksums[k] = v
+			}
+		}
+	}
+	return checksums, nil
+}
+
 func buildZipPortableVersions(entry PackageListEntry, releases []release) ([]Version, error) {
 	versions := []Version{}
 
 	for _, rel := range releases {
+		checksums, err := collectChecksums(rel.Assets)
+		if err != nil {
+			return nil, err
+		}
+
 		installers := []Installer{}
-		checksums := map[string]string{}
-
 		for _, asset := range rel.Assets {
-			if asset.IsChecksum {
-				cs, err := fetchChecksums(asset.DownloadUrl)
-				if err != nil {
-					return nil, err
-				}
-				for k, v := range cs {
-					checksums[k] = v
-				}
-			}
-
 			lname := strings.ToLower(asset.Name)
 			if !(strings.Contains(lname, "windows") && strings.HasSuffix(lname, ".zip")) {
 				continue
 			}
 
-			var arch string
-			if strings.Contains(lname, "x86_64") || strings.Contains(lname, "x64") {
-				arch = "x64"
-			} else if strings.Contains(lname, "i386") || strings.Contains(lname, "x86") {
-				arch = "x86"
-			} else if strings.Contains(lname, "arm64") {
-				arch = "arm64"
-			} else {
+			arch, ok := detectArch(lname)
+			if !ok {
 				continue
 			}
 
-			checksum, ok := checksums[asset.Name]
-			if !ok {
-				checksum = ""
-			}
+			checksum := checksums[asset.Name]
 
 			installers = append(installers, Installer{
 				Architecture:        arch,
@@ -75,6 +86,51 @@ func buildZipPortableVersions(entry PackageListEntry, releases []release) ([]Ver
 						RelativeFilePath: fmt.Sprintf("%s.exe", entry.Name),
 					},
 				},
+			})
+		}
+
+		if len(installers) == 0 {
+			continue
+		}
+
+		versions = append(versions, Version{
+			Version:    rel.Name,
+			Installers: installers,
+		})
+	}
+
+	return versions, nil
+}
+
+func buildInstallerVersions(entry PackageListEntry, releases []release, installerType string, ext string) ([]Version, error) {
+	versions := []Version{}
+
+	for _, rel := range releases {
+		checksums, err := collectChecksums(rel.Assets)
+		if err != nil {
+			return nil, err
+		}
+
+		installers := []Installer{}
+		for _, asset := range rel.Assets {
+			lname := strings.ToLower(asset.Name)
+			if !(strings.Contains(lname, "windows") && strings.HasSuffix(lname, ext)) {
+				continue
+			}
+
+			arch, ok := detectArch(lname)
+			if !ok {
+				continue
+			}
+
+			checksum := checksums[asset.Name]
+
+			installers = append(installers, Installer{
+				Architecture:    arch,
+				InstallerType:   installerType,
+				InstallerUrl:    asset.DownloadUrl,
+				InstallerSha256: checksum,
+				Scope:           "user",
 			})
 		}
 
