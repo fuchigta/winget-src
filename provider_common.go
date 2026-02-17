@@ -154,13 +154,16 @@ func fetchChecksums(url string) (map[string]string, error) {
 	}
 	defer res.Body.Close()
 
+	const maxChecksumSize = 1 << 20 // 1MB
+	body := io.LimitReader(res.Body, maxChecksumSize)
+
 	if res.StatusCode != 200 {
-		contents, _ := io.ReadAll(res.Body)
+		contents, _ := io.ReadAll(body)
 		return nil, fmt.Errorf("checksum download status %d: %s", res.StatusCode, contents)
 	}
 
 	checksums := map[string]string{}
-	scanner := bufio.NewScanner(res.Body)
+	scanner := bufio.NewScanner(body)
 	for scanner.Scan() {
 		line := scanner.Text()
 
