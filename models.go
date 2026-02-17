@@ -89,9 +89,9 @@ type DataResponse struct {
 	Data interface{}
 }
 
-type ErrorReponseEntry struct {
+type ErrorResponseEntry struct {
 	ErrorCode    int
 	ErrorMessage string
 }
 
-type ErrorResponse []ErrorReponseEntry
+type ErrorResponse []ErrorResponseEntry
