@@ -6,7 +6,12 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
+
+var httpClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
 
 type releaseAsset struct {
 	Name        string
@@ -87,7 +92,7 @@ func buildZipPortableVersions(entry PackageListEntry, releases []release) ([]Ver
 }
 
 func fetchChecksums(url string) (map[string]string, error) {
-	res, err := http.Get(url)
+	res, err := httpClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("checksum download: %w", err)
 	}

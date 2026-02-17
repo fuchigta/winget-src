@@ -33,7 +33,7 @@ func (g Github) FetchVersions(entry PackageListEntry) ([]Version, error) {
 		req.Header.Add("Authorization", fmt.Sprintf("token %s", entry.Token))
 	}
 
-	res, err := http.DefaultClient.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("github releases API: %w", err)
 	}
