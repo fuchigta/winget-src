@@ -31,6 +31,17 @@ func (m mockService) PackageManifests(identifier string, version string) (Packag
 	return m.manifestResp, nil
 }
 
+func TestHandler_Health(t *testing.T) {
+	handler := NewWingetSrcHandler(mockService{})
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+}
+
 func TestHandler_Information(t *testing.T) {
 	svc := mockService{
 		infoResp: InformationResponse{

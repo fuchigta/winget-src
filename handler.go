@@ -26,6 +26,10 @@ func NewWingetSrcHandler(service WingetSrcService) http.Handler {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
 
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
 	r.Get("/information", func(w http.ResponseWriter, r *http.Request) {
 		res, _ := service.Information()
 		writeJSON(w, http.StatusOK, DataResponse{Data: res})
