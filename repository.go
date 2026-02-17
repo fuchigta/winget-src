@@ -21,13 +21,13 @@ type WingetSrcRepositoryImpl struct {
 
 func ById(id string) QueryManifestConditon {
 	return func(entry PackageListEntry) bool {
-		return strings.Contains(entry.Id, id)
+		return strings.Contains(strings.ToLower(entry.Id), strings.ToLower(id))
 	}
 }
 
 func ByName(name string) QueryManifestConditon {
 	return func(entry PackageListEntry) bool {
-		return strings.Contains(entry.Name, name)
+		return strings.Contains(strings.ToLower(entry.Name), strings.ToLower(name))
 	}
 }
 

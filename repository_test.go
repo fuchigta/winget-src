@@ -15,6 +15,9 @@ func TestById(t *testing.T) {
 	if cond(PackageListEntry{Id: "owner/bar"}) {
 		t.Error("expected no match for 'owner/bar'")
 	}
+	if !cond(PackageListEntry{Id: "Owner/Foo"}) {
+		t.Error("expected case-insensitive match for 'Owner/Foo'")
+	}
 }
 
 func TestByName(t *testing.T) {
@@ -27,6 +30,9 @@ func TestByName(t *testing.T) {
 	}
 	if cond(PackageListEntry{Name: "bar"}) {
 		t.Error("expected no match for 'bar'")
+	}
+	if !cond(PackageListEntry{Name: "Foo"}) {
+		t.Error("expected case-insensitive match for 'Foo'")
 	}
 }
 
