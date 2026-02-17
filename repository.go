@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v2"
 )
@@ -16,7 +17,8 @@ type WingetSrcRepository interface {
 }
 
 type WingetSrcRepositoryImpl struct {
-	packageList []PackageListEntry
+	packageList   []PackageListEntry
+	versionCache  *Cache[[]Version]
 }
 
 func ById(id string) QueryManifestConditon {
@@ -55,6 +57,25 @@ func And(conditions ...QueryManifestConditon) QueryManifestConditon {
 	}
 }
 
+func (w WingetSrcRepositoryImpl) fetchVersionsCached(entry PackageListEntry) ([]Version, error) {
+	if cached, ok := w.versionCache.Get(entry.Id); ok {
+		return cached, nil
+	}
+
+	provider, err := dispatchProvider(entry)
+	if err != nil {
+		return nil, fmt.Errorf("unknown package provider")
+	}
+
+	versions, err := provider.FetchVersions(entry)
+	if err != nil {
+		return nil, fmt.Errorf("fetch versions: %w", err)
+	}
+
+	w.versionCache.Set(entry.Id, versions)
+	return versions, nil
+}
+
 func (w WingetSrcRepositoryImpl) QueryManifest(condition QueryManifestConditon) ([]Manifest, error) {
 	manifests := []Manifest{}
 
@@ -63,14 +84,9 @@ func (w WingetSrcRepositoryImpl) QueryManifest(condition QueryManifestConditon) 
 			continue
 		}
 
-		provider, err := dispatchProvider(entry)
+		versions, err := w.fetchVersionsCached(entry)
 		if err != nil {
-			return nil, fmt.Errorf("unknown package provider")
-		}
-
-		versions, err := provider.FetchVersions(entry)
-		if err != nil {
-			return nil, fmt.Errorf("fetch versions: %w", err)
+			return nil, err
 		}
 
 		manifestVersions := []ManifestVersion{}
@@ -105,14 +121,9 @@ func (w WingetSrcRepositoryImpl) QueryPackageManifests(identifier string) (Packa
 		return PackageManifests{}, fmt.Errorf("unknown package identifier")
 	}
 
-	provider, err := dispatchProvider(found)
+	versions, err := w.fetchVersionsCached(found)
 	if err != nil {
-		return PackageManifests{}, fmt.Errorf("unknown package provider")
-	}
-
-	versions, err := provider.FetchVersions(found)
-	if err != nil {
-		return PackageManifests{}, fmt.Errorf("fetch versions: %w", err)
+		return PackageManifests{}, err
 	}
 
 	pkgManifestVersions := []PackageManifestsVersion{}
@@ -160,6 +171,7 @@ func NewWingetSrcRepository(packageListPath string) (WingetSrcRepository, error)
 	}
 
 	return WingetSrcRepositoryImpl{
-		packageList: packageList,
+		packageList:  packageList,
+		versionCache: NewCache[[]Version](5 * time.Minute),
 	}, nil
 }
