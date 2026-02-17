@@ -22,13 +22,13 @@ func run() int {
 		port = "8080"
 	}
 
-	pacakgeListPath := os.Getenv("PACKAGE_LIST")
-	if pacakgeListPath == "" {
+	packageListPath := os.Getenv("PACKAGE_LIST")
+	if packageListPath == "" {
 		slog.Error("env var PACKAGE_LIST is required")
 		return exitErr
 	}
 
-	repository, err := NewWingetSrcRepository(pacakgeListPath)
+	repository, err := NewWingetSrcRepository(packageListPath)
 	if err != nil {
 		slog.Error(err.Error())
 		return exitErr
