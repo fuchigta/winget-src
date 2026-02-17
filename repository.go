@@ -111,7 +111,7 @@ func (w WingetSrcRepositoryImpl) QueryManifest(condition QueryManifestCondition)
 func (w WingetSrcRepositoryImpl) QueryPackageManifests(identifier string) (PackageManifests, error) {
 	var found PackageListEntry
 	for _, entry := range w.packageList {
-		if entry.Id == identifier {
+		if strings.EqualFold(entry.Id, identifier) {
 			found = entry
 			break
 		}
