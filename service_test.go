@@ -35,7 +35,7 @@ func (m mockRepository) QueryPackageManifests(identifier string) (PackageManifes
 	if m.packageManifest.PackageIdentifier == identifier {
 		return m.packageManifest, nil
 	}
-	return PackageManifests{}, fmt.Errorf("unknown package identifier")
+	return PackageManifests{}, nil
 }
 
 func TestInformation(t *testing.T) {
@@ -201,8 +201,11 @@ func TestPackageManifests_NotFound(t *testing.T) {
 	repo := mockRepository{}
 	svc := NewWingetSrcService(repo)
 
-	_, err := svc.PackageManifests("nonexistent", "")
-	if err == nil {
-		t.Fatal("expected error, got nil")
+	res, err := svc.PackageManifests("nonexistent", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if res.PackageIdentifier != "" {
+		t.Errorf("expected empty PackageIdentifier, got '%s'", res.PackageIdentifier)
 	}
 }

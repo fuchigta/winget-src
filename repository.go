@@ -118,7 +118,7 @@ func (w WingetSrcRepositoryImpl) QueryPackageManifests(identifier string) (Packa
 	}
 
 	if found.Id == "" {
-		return PackageManifests{}, fmt.Errorf("unknown package identifier")
+		return PackageManifests{}, nil
 	}
 
 	versions, err := w.fetchVersionsCached(found)

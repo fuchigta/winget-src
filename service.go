@@ -78,6 +78,10 @@ func (w WingetSrcServiceImpl) PackageManifests(identifier string, version string
 		return PackageManifestsResponse{}, err
 	}
 
+	if res.PackageIdentifier == "" {
+		return PackageManifestsResponse{}, nil
+	}
+
 	if len(version) != 0 {
 		found := []PackageManifestsVersion{}
 		for _, v := range res.Versions {
