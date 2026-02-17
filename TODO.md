@@ -24,3 +24,20 @@
 - [x] レスポンスキャッシュの導入（毎リクエストで外部APIに問い合わせている）
 - [x] `zip-portable` 以外のインストーラータイプ対応（msi, exe 等）
 - [x] ヘルスチェックエンドポイント (`GET /health`) の追加
+
+## バグ・不具合（追加）
+
+- [ ] `service.go:31,67` — typo: `conditons` → `conditions`, `maniests` → `manifests`
+- [ ] `repository.go:12` — typo: `QueryManifestConditon` → `QueryManifestCondition`（型名・インターフェース・テスト全箇所）
+- [ ] `provider_common.go:164-166` — `scanner.Err()` がループ内にあり、最後のエラーしか検出できない。ループ外に移動すべき
+- [ ] `handler.go:34` — `/information` エンドポイントで `service.Information()` のエラーを無視している
+
+## コード品質（追加）
+
+- [ ] `repository.go:120-121` — `QueryPackageManifests` で identifier が見つからない場合に error を返しているが、handler側で500エラーになる。空の `PackageManifests` を返して204にすべき
+- [ ] `provider_common.go:158` — `fetchChecksums` でレスポンスボディの読み取りサイズに上限がない（DoS対策として `io.LimitReader` を使用すべき）
+
+## テスト（追加）
+
+- [ ] `cache.go` のユニットテスト追加（TTL期限切れ、Get/Set、並行アクセス）
+- [ ] `provider_common.go` のユニットテスト追加（`detectArch`, `buildZipPortableVersions`, `buildInstallerVersions`）
