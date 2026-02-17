@@ -74,30 +74,12 @@ func (g Gitlab) handleZipPortable(entry PackageListEntry, releases []gitlabRelea
 		for _, link := range release.Assets.Links {
 			lname := strings.ToLower(link.Name)
 			if strings.Contains(lname, "checksum") {
-				checkSumRes, err := http.Get(link.Url)
+				cs, err := g.fetchChecksums(link.Url)
 				if err != nil {
-					return nil, fmt.Errorf("checksum download: %w", err)
+					return nil, err
 				}
-				defer checkSumRes.Body.Close()
-
-				if checkSumRes.StatusCode != 200 {
-					contents, _ := io.ReadAll(checkSumRes.Body)
-					return nil, fmt.Errorf("checksum download status %d: %s", checkSumRes.StatusCode, contents)
-				}
-
-				scanner := bufio.NewScanner(checkSumRes.Body)
-				for scanner.Scan() {
-					line := scanner.Text()
-					if err := scanner.Err(); err != nil {
-						return nil, fmt.Errorf("checksum read: %w", err)
-					}
-
-					fields := strings.Fields(line)
-					if len(fields) != 2 {
-						return nil, fmt.Errorf("checksum format error")
-					}
-
-					checksums[fields[1]] = fields[0]
+				for k, v := range cs {
+					checksums[k] = v
 				}
 			}
 
@@ -147,6 +129,37 @@ func (g Gitlab) handleZipPortable(entry PackageListEntry, releases []gitlabRelea
 	}
 
 	return versions, nil
+}
+
+func (g Gitlab) fetchChecksums(url string) (map[string]string, error) {
+	res, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("checksum download: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		contents, _ := io.ReadAll(res.Body)
+		return nil, fmt.Errorf("checksum download status %d: %s", res.StatusCode, contents)
+	}
+
+	checksums := map[string]string{}
+	scanner := bufio.NewScanner(res.Body)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if err := scanner.Err(); err != nil {
+			return nil, fmt.Errorf("checksum read: %w", err)
+		}
+
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			return nil, fmt.Errorf("checksum format error")
+		}
+
+		checksums[fields[1]] = fields[0]
+	}
+
+	return checksums, nil
 }
 
 var _ PackageProvider = Gitlab{}
