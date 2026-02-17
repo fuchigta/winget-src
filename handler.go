@@ -2,12 +2,21 @@ package main
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
+
+func writeJSON(w http.ResponseWriter, status int, v interface{}) {
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		slog.Error("failed to encode JSON response", "error", err)
+	}
+}
 
 func NewWingetSrcHandler(service WingetSrcService) http.Handler {
 	r := chi.NewRouter()
@@ -19,20 +28,13 @@ func NewWingetSrcHandler(service WingetSrcService) http.Handler {
 
 	r.Get("/information", func(w http.ResponseWriter, r *http.Request) {
 		res, _ := service.Information()
-
-		w.Header().Add("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(DataResponse{
-			Data: res,
-		})
+		writeJSON(w, http.StatusOK, DataResponse{Data: res})
 	})
 
 	r.Post("/manifestSearch", func(w http.ResponseWriter, r *http.Request) {
 		var req ManifestSearchRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			w.Header().Add("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(ErrorResponse{
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{
 				{
 					ErrorCode:    http.StatusBadRequest,
 					ErrorMessage: err.Error(),
@@ -43,9 +45,7 @@ func NewWingetSrcHandler(service WingetSrcService) http.Handler {
 
 		res, err := service.ManifestSearch(req)
 		if err != nil {
-			w.Header().Add("Content-Type", "application/json")
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(ErrorResponse{
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 				{
 					ErrorCode:    http.StatusInternalServerError,
 					ErrorMessage: err.Error(),
@@ -54,11 +54,7 @@ func NewWingetSrcHandler(service WingetSrcService) http.Handler {
 			return
 		}
 
-		w.Header().Add("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(DataResponse{
-			Data: res,
-		})
+		writeJSON(w, http.StatusOK, DataResponse{Data: res})
 	})
 
 	r.Get("/packageManifests/{identifier}", func(w http.ResponseWriter, r *http.Request) {
@@ -67,9 +63,7 @@ func NewWingetSrcHandler(service WingetSrcService) http.Handler {
 
 		res, err := service.PackageManifests(identifier, version)
 		if err != nil {
-			w.Header().Add("Content-Type", "application/json")
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(ErrorResponse{
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 				{
 					ErrorCode:    http.StatusInternalServerError,
 					ErrorMessage: err.Error(),
@@ -83,11 +77,7 @@ func NewWingetSrcHandler(service WingetSrcService) http.Handler {
 			return
 		}
 
-		w.Header().Add("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(DataResponse{
-			Data: res,
-		})
+		writeJSON(w, http.StatusOK, DataResponse{Data: res})
 	})
 
 	return r
