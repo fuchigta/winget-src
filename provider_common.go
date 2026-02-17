@@ -163,9 +163,6 @@ func fetchChecksums(url string) (map[string]string, error) {
 	scanner := bufio.NewScanner(res.Body)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if err := scanner.Err(); err != nil {
-			return nil, fmt.Errorf("checksum read: %w", err)
-		}
 
 		fields := strings.Fields(line)
 		if len(fields) != 2 {
@@ -173,6 +170,10 @@ func fetchChecksums(url string) (map[string]string, error) {
 		}
 
 		checksums[fields[1]] = fields[0]
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("checksum read: %w", err)
 	}
 
 	return checksums, nil
