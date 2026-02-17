@@ -9,10 +9,10 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type QueryManifestConditon func(PackageListEntry) bool
+type QueryManifestCondition func(PackageListEntry) bool
 
 type WingetSrcRepository interface {
-	QueryManifest(condition QueryManifestConditon) ([]Manifest, error)
+	QueryManifest(condition QueryManifestCondition) ([]Manifest, error)
 	QueryPackageManifests(identifier string) (PackageManifests, error)
 }
 
@@ -21,19 +21,19 @@ type WingetSrcRepositoryImpl struct {
 	versionCache  *Cache[[]Version]
 }
 
-func ById(id string) QueryManifestConditon {
+func ById(id string) QueryManifestCondition {
 	return func(entry PackageListEntry) bool {
 		return strings.Contains(strings.ToLower(entry.Id), strings.ToLower(id))
 	}
 }
 
-func ByName(name string) QueryManifestConditon {
+func ByName(name string) QueryManifestCondition {
 	return func(entry PackageListEntry) bool {
 		return strings.Contains(strings.ToLower(entry.Name), strings.ToLower(name))
 	}
 }
 
-func Or(conditions ...QueryManifestConditon) QueryManifestConditon {
+func Or(conditions ...QueryManifestCondition) QueryManifestCondition {
 	return func(entry PackageListEntry) bool {
 		for _, condition := range conditions {
 			if condition(entry) {
@@ -45,7 +45,7 @@ func Or(conditions ...QueryManifestConditon) QueryManifestConditon {
 	}
 }
 
-func And(conditions ...QueryManifestConditon) QueryManifestConditon {
+func And(conditions ...QueryManifestCondition) QueryManifestCondition {
 	return func(entry PackageListEntry) bool {
 		for _, condition := range conditions {
 			if !condition(entry) {
@@ -76,7 +76,7 @@ func (w WingetSrcRepositoryImpl) fetchVersionsCached(entry PackageListEntry) ([]
 	return versions, nil
 }
 
-func (w WingetSrcRepositoryImpl) QueryManifest(condition QueryManifestConditon) ([]Manifest, error) {
+func (w WingetSrcRepositoryImpl) QueryManifest(condition QueryManifestCondition) ([]Manifest, error) {
 	manifests := []Manifest{}
 
 	for _, entry := range w.packageList {

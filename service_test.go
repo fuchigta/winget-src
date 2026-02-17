@@ -11,7 +11,7 @@ type mockRepository struct {
 	err             error
 }
 
-func (m mockRepository) QueryManifest(condition QueryManifestConditon) ([]Manifest, error) {
+func (m mockRepository) QueryManifest(condition QueryManifestCondition) ([]Manifest, error) {
 	if m.err != nil {
 		return nil, m.err
 	}

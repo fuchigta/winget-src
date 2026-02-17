@@ -28,14 +28,14 @@ func (w WingetSrcServiceImpl) Information() (InformationResponse, error) {
 	}, nil
 }
 func (w WingetSrcServiceImpl) ManifestSearch(req ManifestSearchRequest) (ManifestSearchResponse, error) {
-	conditons := []QueryManifestConditon{}
+	conditions := []QueryManifestCondition{}
 
 	if req.Query.Keyword != "" {
-		conditons = append(conditons, ByName(req.Query.Keyword))
+		conditions = append(conditions, ByName(req.Query.Keyword))
 	}
 
 	if len(req.Inclusions) != 0 {
-		orConds := []QueryManifestConditon{}
+		orConds := []QueryManifestCondition{}
 
 		for _, inclusion := range req.Inclusions {
 			switch inclusion.PackageMatchField {
@@ -46,11 +46,11 @@ func (w WingetSrcServiceImpl) ManifestSearch(req ManifestSearchRequest) (Manifes
 			}
 		}
 
-		conditons = append(conditons, Or(orConds...))
+		conditions = append(conditions, Or(orConds...))
 	}
 
 	if len(req.Filters) != 0 {
-		andConds := []QueryManifestConditon{}
+		andConds := []QueryManifestCondition{}
 
 		for _, filter := range req.Filters {
 			switch filter.PackageMatchField {
@@ -61,15 +61,15 @@ func (w WingetSrcServiceImpl) ManifestSearch(req ManifestSearchRequest) (Manifes
 			}
 		}
 
-		conditons = append(conditons, And(andConds...))
+		conditions = append(conditions, And(andConds...))
 	}
 
-	maniests, err := w.repository.QueryManifest(And(conditons...))
+	manifests, err := w.repository.QueryManifest(And(conditions...))
 	if err != nil {
 		return ManifestSearchResponse{}, err
 	}
 
-	return maniests, nil
+	return manifests, nil
 }
 
 func (w WingetSrcServiceImpl) PackageManifests(identifier string, version string) (PackageManifestsResponse, error) {
