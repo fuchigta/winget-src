@@ -10,9 +10,11 @@ WinGet互換のREST APIサーバー。GitHub/GitLabのリリース情報をWinGe
 
 - **マルチプロバイダー対応**: GitHub ReleasesとGitLab Releasesに対応
 - **WinGet API互換**: WinGetパッケージマネージャーの標準API仕様に準拠
-- **zip-portable対応**: ポータブルアプリケーション（ZIP形式）のインストーラーをサポート
+- **マルチインストーラー対応**: zip-portable（ZIPポータブル）、msi、exeのインストーラー形式をサポート
 - **マルチアーキテクチャ**: x64、x86、ARM64に対応
 - **チェックサム検証**: SHA256チェックサムの自動取得と検証
+- **キャッシュ機能**: バージョン情報をメモリキャッシュして外部APIへのリクエストを削減
+- **Graceful Degradation**: 一部プロバイダーの失敗時も他の成功結果を返すオプション
 - **軽量**: Go言語で実装された高速なマイクロサービス
 - **クロスプラットフォーム**: Windows、Linux、macOS向けビルド対応
 
@@ -41,11 +43,17 @@ go build -o winget-src
 goreleaser build --snapshot --clean
 ```
 
+### Dockerを使用したビルド
+
+```bash
+docker build -t winget-src .
+```
+
 ## 使い方
 
 ### 1. パッケージリストYAMLファイルの作成
 
-パッケージ情報を定義したYAMLファイルを作成します。
+パッケージ情報を定義したYAMLファイルを作成します。`packages.yaml.example`を参考にしてください。
 
 ```yaml
 # packages.yaml
@@ -56,6 +64,13 @@ goreleaser build --snapshot --clean
   description: Windows system utilities to maximize productivity
   token: ghp_your_github_token_here  # オプション
   installer_type: zip-portable
+
+- provider: github
+  id: example/app
+  name: Example App
+  publisher: Example
+  description: An example application
+  installer_type: msi
 
 - provider: gitlab
   id: gitlab-org/gitlab-runner
@@ -77,7 +92,7 @@ goreleaser build --snapshot --clean
 | `name` | ✓ | パッケージ名 |
 | `publisher` | ✓ | 発行者名 |
 | `description` | ✓ | パッケージの説明 |
-| `installer_type` | ✓ | インストーラー形式（現在は `zip-portable` のみ対応） |
+| `installer_type` | ✓ | インストーラー形式（`zip-portable`、`msi`、`exe`） |
 | `token` | - | 認証トークン（プライベートリポジトリやレート制限緩和に使用） |
 | `endpoint` | - | GitLabのエンドポイント（GitLab専用、デフォルト: `https://gitlab.com`） |
 | `project_id` | - | GitLabのプロジェクトID（GitLab専用） |
@@ -85,9 +100,20 @@ goreleaser build --snapshot --clean
 ### 2. 環境変数の設定
 
 ```bash
-export PACKAGE_LIST=/path/to/packages.yaml
-export PORT=8080  # オプション、デフォルトは8080
+export PACKAGE_LIST=/path/to/packages.yaml  # 必須
+export PORT=8080                            # オプション、デフォルト: 8080
 ```
+
+#### オプションの環境変数
+
+| 環境変数 | デフォルト | 説明 |
+|---------|-----------|------|
+| `CACHE_TTL` | `5m` | バージョン情報キャッシュの有効期限 |
+| `CACHE_CLEANUP_INTERVAL` | `10m` | 期限切れキャッシュの定期削除間隔 |
+| `HTTP_CLIENT_TIMEOUT` | `30s` | 外部APIへのHTTPリクエストのタイムアウト |
+| `HANDLER_TIMEOUT` | `60s` | HTTPハンドラー全体のタイムアウト |
+| `GRACEFUL_DEGRADATION` | `false` | `true` の場合、一部プロバイダー失敗時も他の成功結果を返す |
+| `SOURCE_IDENTIFIER` | `api.winget-src` | WinGet API の SourceIdentifier フィールド値 |
 
 ### 3. サーバーの起動
 
@@ -99,6 +125,15 @@ export PORT=8080  # オプション、デフォルトは8080
 
 ```
 INFO start server listen
+```
+
+### Dockerでの起動
+
+```bash
+docker run -e PACKAGE_LIST=/app/packages.yaml \
+  -v /path/to/packages.yaml:/app/packages.yaml \
+  -p 8080:8080 \
+  winget-src
 ```
 
 ### 4. WinGetからの利用
@@ -132,6 +167,12 @@ winget install --id microsoft/powertoys --source custom
 
 ## APIエンドポイント
 
+### `GET /health`
+
+ヘルスチェック。サーバーが正常に動作しているか確認します。
+
+**レスポンス:** `200 OK`
+
 ### `GET /information`
 
 サーバー情報を取得します。
@@ -140,7 +181,7 @@ winget install --id microsoft/powertoys --source custom
 ```json
 {
   "Data": {
-    "SourceIdentifier": "winget-src",
+    "SourceIdentifier": "api.winget-src",
     "ServerSupportedVersions": ["1.0.0"]
   }
 }
@@ -225,6 +266,7 @@ winget install --id microsoft/powertoys --source custom
          ↓
 ┌─────────────────────────────┐
 │  WingetSrcHandler           │
+│  - GET  /health             │
 │  - GET  /information        │
 │  - POST /manifestSearch     │
 │  - GET  /packageManifests   │
@@ -237,7 +279,7 @@ winget install --id microsoft/powertoys --source custom
               │
 ┌─────────────┴───────────────┐
 │  WingetSrcRepository        │
-│  (データアクセス層)          │
+│  (データアクセス層・キャッシュ)│
 └─────────────┬───────────────┘
               │
       ┌───────┴───────┐
@@ -256,7 +298,7 @@ winget install --id microsoft/powertoys --source custom
 ### 依存関係
 
 - [chi/v5](https://github.com/go-chi/chi) - HTTPルーター
-- [yaml.v2](https://gopkg.in/yaml.v2) - YAML解析
+- [yaml.v3](https://gopkg.in/yaml.v3) - YAML解析
 
 ### ディレクトリ構成
 
@@ -264,17 +306,21 @@ winget install --id microsoft/powertoys --source custom
 .
 ├── .github/
 │   └── workflows/
-│       └── release.yml      # GitHub Actions CI/CD
-├── .goreleaser.yaml         # GoReleaser設定
-├── main.go                  # エントリーポイント
-├── handler.go               # HTTPハンドラー
-├── service.go               # ビジネスロジック
-├── repository.go            # データアクセス層
-├── models.go                # WinGet APIモデル
-├── types.go                 # 型定義
-├── github.go                # GitHubプロバイダー
-├── gitlab.go                # GitLabプロバイダー
-└── go.mod                   # Go依存関係
+│       └── release.yml         # GitHub Actions CI/CD
+├── .goreleaser.yaml            # GoReleaser設定
+├── Dockerfile                  # コンテナイメージビルド設定
+├── main.go                     # エントリーポイント
+├── handler.go                  # HTTPハンドラー
+├── service.go                  # ビジネスロジック
+├── repository.go               # データアクセス層・キャッシュ管理
+├── models.go                   # WinGet APIモデル
+├── types.go                    # 型定義
+├── cache.go                    # 汎用キャッシュ実装
+├── github.go                   # GitHubプロバイダー
+├── gitlab.go                   # GitLabプロバイダー
+├── provider_common.go          # プロバイダー共通関数
+├── packages.yaml.example       # パッケージ設定サンプル
+└── go.mod                      # Go依存関係
 ```
 
 ### テストの実行
@@ -327,6 +373,10 @@ export PACKAGE_LIST=/path/to/packages.yaml
 ### レート制限エラー
 
 GitHub APIはレート制限があります。トークンを設定して制限を緩和してください。
+
+### パッケージ取得が遅い
+
+`CACHE_TTL`と`CACHE_CLEANUP_INTERVAL`を調整してキャッシュの有効期間を延ばすことで、外部APIへのリクエスト頻度を減らせます。
 
 ## ライセンス
 
