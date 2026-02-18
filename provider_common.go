@@ -31,6 +31,12 @@ func detectArch(lname string) (string, bool) {
 	return "", false
 }
 
+// hasArchKeyword はファイル名にアーキテクチャキーワードが含まれるか確認する
+func hasArchKeyword(lname string) bool {
+	_, ok := detectArch(lname)
+	return ok
+}
+
 func collectChecksums(ctx context.Context, client *http.Client, assets []releaseAsset) (map[string]string, error) {
 	checksums := map[string]string{}
 	for _, asset := range assets {
@@ -71,7 +77,7 @@ func buildZipPortableVersions(ctx context.Context, client *http.Client, entry Pa
 		installers := []Installer{}
 		for _, asset := range rel.Assets {
 			lname := strings.ToLower(asset.Name)
-			if !(strings.Contains(lname, "windows") && strings.HasSuffix(lname, ".zip")) {
+			if !((strings.Contains(lname, "windows") || hasArchKeyword(lname)) && strings.HasSuffix(lname, ".zip")) {
 				continue
 			}
 			arch, ok := detectArch(lname)
@@ -103,7 +109,7 @@ func buildInstallerVersions(ctx context.Context, client *http.Client, entry Pack
 		installers := []Installer{}
 		for _, asset := range rel.Assets {
 			lname := strings.ToLower(asset.Name)
-			if !(strings.Contains(lname, "windows") && strings.HasSuffix(lname, ext)) {
+			if !((strings.Contains(lname, "windows") || hasArchKeyword(lname)) && strings.HasSuffix(lname, ext)) {
 				continue
 			}
 			arch, ok := detectArch(lname)

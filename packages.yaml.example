@@ -38,3 +38,15 @@
   project_id: 12345678          # GitLab プロジェクトID（数値）
   token: ""                     # プライベートプロジェクトの場合は PRIVATE-TOKEN を設定
   installer_type: zip-portable
+
+# GitHub プロバイダーの例（MSI形式）— アセット名に "windows" を含まないケース
+# cc-launcher のアセット名は `cc-launcher_<VERSION>_x64_ja-JP.msi` 形式のため、
+# アーキテクチャキーワード（x64）による自動検出が適用される
+- provider: github
+  id: fuchigta/cc-launcher
+  name: CC Launcher
+  publisher: fuchigta
+  description: Windows system tray app for quick access to Claude Code via global keyboard shortcut
+  token: ""
+  installer_type: msi
+  license: MIT
