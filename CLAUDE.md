@@ -16,6 +16,32 @@ export PORT=8080                            # 任意（デフォルト: 8080）
 ./winget-src
 ```
 
+## ローカル動作確認（HTTPS）
+
+WinGet は HTTPS のソースしか受け付けないため、ローカル確認時は mkcert で証明書を用意する。
+
+```powershell
+# mkcert のインストールと初期設定（初回のみ・管理者権限で実行）
+winget install FiloSottile.mkcert
+mkcert -install
+
+# プロジェクトルートで証明書を生成（*.pem は .gitignore 済み）
+mkcert localhost 127.0.0.1
+
+# TLS 有効で起動
+$env:PACKAGE_LIST = "packages.yaml.example"
+$env:TLS_CERT     = "localhost+1.pem"
+$env:TLS_KEY      = "localhost+1-key.pem"
+$env:PORT         = "8443"
+.\winget-src.exe
+
+# WinGet ソースとして登録・確認
+winget source add -n local-src -a https://localhost:8443 -t "Microsoft.Rest"
+winget search "CC Launcher" --source local-src
+```
+
+`TLS_CERT` / `TLS_KEY` を指定しない場合は HTTP で起動する（デフォルト動作）。
+
 ## アーキテクチャ
 
 Handler → Service → Repository → Provider の4層構造。各層はインターフェースで分離されており、テスタビリティとプロバイダーの拡張性を確保している。
