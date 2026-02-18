@@ -15,9 +15,11 @@ func TestDetectArch(t *testing.T) {
 	}{
 		{"app_windows_x86_64.zip", "x64", true},
 		{"app_windows_x64.zip", "x64", true},
+		{"app_windows_amd64.zip", "x64", true},
 		{"app_windows_i386.zip", "x86", true},
 		{"app_windows_x86.zip", "x86", true},
 		{"app_windows_arm64.zip", "arm64", true},
+		{"app_windows_aarch64.zip", "arm64", true},
 		{"app_linux_x64.tar.gz", "x64", true},
 		{"app_windows.zip", "", false},
 		{"app.zip", "", false},
@@ -47,7 +49,7 @@ func TestBuildZipPortableVersions(t *testing.T) {
 		},
 	}
 
-	versions, err := buildZipPortableVersions(entry, releases)
+	versions, err := buildZipPortableVersions(http.DefaultClient, entry, releases)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -89,7 +91,7 @@ func TestBuildZipPortableVersions_NoMatch(t *testing.T) {
 		},
 	}
 
-	versions, err := buildZipPortableVersions(entry, releases)
+	versions, err := buildZipPortableVersions(http.DefaultClient, entry, releases)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -112,7 +114,7 @@ func TestBuildInstallerVersions_Msi(t *testing.T) {
 		},
 	}
 
-	versions, err := buildInstallerVersions(entry, releases, "msi", ".msi")
+	versions, err := buildInstallerVersions(http.DefaultClient, entry, releases, "msi", ".msi")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -147,7 +149,7 @@ func TestBuildInstallerVersions_NoMatch(t *testing.T) {
 		},
 	}
 
-	versions, err := buildInstallerVersions(entry, releases, "exe", ".exe")
+	versions, err := buildInstallerVersions(http.DefaultClient, entry, releases, "exe", ".exe")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -164,7 +166,7 @@ func TestFetchChecksums_Success(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	checksums, err := fetchChecksums(ts.URL)
+	checksums, err := fetchChecksums(ts.Client(), ts.URL)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -189,7 +191,7 @@ func TestFetchChecksums_BadStatus(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	_, err := fetchChecksums(ts.URL)
+	_, err := fetchChecksums(ts.Client(), ts.URL)
 	if err == nil {
 		t.Fatal("expected error for non-200 status")
 	}
@@ -201,7 +203,7 @@ func TestFetchChecksums_BadFormat(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	_, err := fetchChecksums(ts.URL)
+	_, err := fetchChecksums(ts.Client(), ts.URL)
 	if err == nil {
 		t.Fatal("expected error for bad checksum format")
 	}

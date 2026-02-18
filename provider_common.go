@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-var httpClient = &http.Client{
+var defaultHTTPClient = &http.Client{
 	Timeout: 30 * time.Second,
 }
 
@@ -25,21 +25,21 @@ type release struct {
 }
 
 func detectArch(lname string) (string, bool) {
-	if strings.Contains(lname, "x86_64") || strings.Contains(lname, "x64") {
+	if strings.Contains(lname, "x86_64") || strings.Contains(lname, "x64") || strings.Contains(lname, "amd64") {
 		return "x64", true
 	} else if strings.Contains(lname, "i386") || strings.Contains(lname, "x86") {
 		return "x86", true
-	} else if strings.Contains(lname, "arm64") {
+	} else if strings.Contains(lname, "arm64") || strings.Contains(lname, "aarch64") {
 		return "arm64", true
 	}
 	return "", false
 }
 
-func collectChecksums(assets []releaseAsset) (map[string]string, error) {
+func collectChecksums(client *http.Client, assets []releaseAsset) (map[string]string, error) {
 	checksums := map[string]string{}
 	for _, asset := range assets {
 		if asset.IsChecksum {
-			cs, err := fetchChecksums(asset.DownloadUrl)
+			cs, err := fetchChecksums(client, asset.DownloadUrl)
 			if err != nil {
 				return nil, err
 			}
@@ -51,104 +51,79 @@ func collectChecksums(assets []releaseAsset) (map[string]string, error) {
 	return checksums, nil
 }
 
-func buildZipPortableVersions(entry PackageListEntry, releases []release) ([]Version, error) {
+func buildVersions(client *http.Client, releases []release, buildInstallers func(rel release, checksums map[string]string) []Installer) ([]Version, error) {
 	versions := []Version{}
-
 	for _, rel := range releases {
-		checksums, err := collectChecksums(rel.Assets)
+		checksums, err := collectChecksums(client, rel.Assets)
 		if err != nil {
 			return nil, err
 		}
+		installers := buildInstallers(rel, checksums)
+		if len(installers) == 0 {
+			continue
+		}
+		versions = append(versions, Version{
+			Version:    rel.Name,
+			Installers: installers,
+		})
+	}
+	return versions, nil
+}
 
+func buildZipPortableVersions(client *http.Client, entry PackageListEntry, releases []release) ([]Version, error) {
+	return buildVersions(client, releases, func(rel release, checksums map[string]string) []Installer {
 		installers := []Installer{}
 		for _, asset := range rel.Assets {
 			lname := strings.ToLower(asset.Name)
 			if !(strings.Contains(lname, "windows") && strings.HasSuffix(lname, ".zip")) {
 				continue
 			}
-
 			arch, ok := detectArch(lname)
 			if !ok {
 				continue
 			}
-
-			checksum := checksums[asset.Name]
-
 			installers = append(installers, Installer{
 				Architecture:        arch,
 				InstallerType:       "zip",
 				InstallerUrl:        asset.DownloadUrl,
-				InstallerSha256:     checksum,
+				InstallerSha256:     checksums[asset.Name],
 				Scope:               "user",
 				NestedInstallerType: "portable",
 				NestedInstallerFiles: []NestedInstallerFile{
-					{
-						RelativeFilePath: fmt.Sprintf("%s.exe", entry.Name),
-					},
+					{RelativeFilePath: fmt.Sprintf("%s.exe", entry.Name)},
 				},
 			})
 		}
-
-		if len(installers) == 0 {
-			continue
-		}
-
-		versions = append(versions, Version{
-			Version:    rel.Name,
-			Installers: installers,
-		})
-	}
-
-	return versions, nil
+		return installers
+	})
 }
 
-func buildInstallerVersions(entry PackageListEntry, releases []release, installerType string, ext string) ([]Version, error) {
-	versions := []Version{}
-
-	for _, rel := range releases {
-		checksums, err := collectChecksums(rel.Assets)
-		if err != nil {
-			return nil, err
-		}
-
+func buildInstallerVersions(client *http.Client, entry PackageListEntry, releases []release, installerType string, ext string) ([]Version, error) {
+	return buildVersions(client, releases, func(rel release, checksums map[string]string) []Installer {
 		installers := []Installer{}
 		for _, asset := range rel.Assets {
 			lname := strings.ToLower(asset.Name)
 			if !(strings.Contains(lname, "windows") && strings.HasSuffix(lname, ext)) {
 				continue
 			}
-
 			arch, ok := detectArch(lname)
 			if !ok {
 				continue
 			}
-
-			checksum := checksums[asset.Name]
-
 			installers = append(installers, Installer{
 				Architecture:    arch,
 				InstallerType:   installerType,
 				InstallerUrl:    asset.DownloadUrl,
-				InstallerSha256: checksum,
+				InstallerSha256: checksums[asset.Name],
 				Scope:           "user",
 			})
 		}
-
-		if len(installers) == 0 {
-			continue
-		}
-
-		versions = append(versions, Version{
-			Version:    rel.Name,
-			Installers: installers,
-		})
-	}
-
-	return versions, nil
+		return installers
+	})
 }
 
-func fetchChecksums(url string) (map[string]string, error) {
-	res, err := httpClient.Get(url)
+func fetchChecksums(client *http.Client, url string) (map[string]string, error) {
+	res, err := client.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("checksum download: %w", err)
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -16,15 +17,15 @@ type mockService struct {
 	err          error
 }
 
-func (m mockService) Information() (InformationResponse, error) {
+func (m mockService) Information(ctx context.Context) (InformationResponse, error) {
 	return m.infoResp, m.err
 }
 
-func (m mockService) ManifestSearch(req ManifestSearchRequest) (ManifestSearchResponse, error) {
+func (m mockService) ManifestSearch(ctx context.Context, req ManifestSearchRequest) (ManifestSearchResponse, error) {
 	return m.searchResp, m.err
 }
 
-func (m mockService) PackageManifests(identifier string, version string) (PackageManifestsResponse, error) {
+func (m mockService) PackageManifests(ctx context.Context, identifier string, version string) (PackageManifestsResponse, error) {
 	if m.err != nil {
 		return PackageManifestsResponse{}, m.err
 	}
