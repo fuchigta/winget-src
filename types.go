@@ -1,6 +1,9 @@
 package main
 
-import "context"
+import (
+	"context"
+	"os"
+)
 
 const (
 	InstallerTypeZipPortable = "zip-portable"
@@ -19,7 +22,19 @@ type PackageListEntry struct {
 	Endpoint       string `yaml:"endpoint"`
 	ProjectID      uint   `yaml:"project_id"`
 	Token          string `yaml:"token"`
+	TokenEnv       string `yaml:"token_env"`
 	InstallerType  string `yaml:"installer_type"`
+}
+
+// GetToken returns the token for this entry. Token takes precedence over TokenEnv.
+func (e PackageListEntry) GetToken() string {
+	if e.Token != "" {
+		return e.Token
+	}
+	if e.TokenEnv != "" {
+		return os.Getenv(e.TokenEnv)
+	}
+	return ""
 }
 
 type Version struct {

@@ -107,27 +107,27 @@
 
 ## 設定管理（追加）
 
-- [ ] コマンドラインフラグ対応を追加し、環境変数の代替手段として使えるようにする（`main.go`）
+- [x] コマンドラインフラグ対応を追加し、環境変数の代替手段として使えるようにする（`main.go`）
   - `ff`（peterbourgon/ff）の利用を検討：フラグ > 環境変数 > デフォルトの優先度を自動制御できる軽量ライブラリ
   - 参考: https://github.com/peterbourgon/ff
-- [ ] `token_env` フィールドを `PackageListEntry` に追加し、環境変数名でトークンを参照できるようにする（`types.go`, `github.go`, `gitlab.go`）
+- [x] `token_env` フィールドを `PackageListEntry` に追加し、環境変数名でトークンを参照できるようにする（`types.go`, `github.go`, `gitlab.go`）
 
 ## セキュリティ（追加）
 
-- [ ] TLS設定に `MinVersion: tls.VersionTLS13` を指定し、TLS 1.2 接続を禁止する（`main.go`）
+- [x] TLS設定に `MinVersion: tls.VersionTLS13` を指定し、TLS 1.2 接続を禁止する（`main.go`）
 
 ## キャッシュ・パフォーマンス（追加）
 
-- [ ] `cache.go` — エントリ数の上限（`maxEntries`）を設けてメモリ使用量を制御する
-- [ ] `fetchVersionsCached` にリトライロジックを追加する（外部API一時障害への対応）（`repository.go`）
+- [x] `cache.go` — エントリ数の上限（`maxEntries`）を設けてメモリ使用量を制御する
+- [x] `fetchVersionsCached` にリトライロジックを追加する（外部API一時障害への対応）（`repository.go`）
 
 ## ロギング・観測可能性（追加）
 
-- [ ] ログレベルを環境変数（`LOG_LEVEL`）で制御できるようにする（`main.go`）
-- [ ] キャッシュヒット/ミスを `slog.Debug` でログ出力する（`cache.go`）
-- [ ] プロバイダー呼び出しのレイテンシをログ出力する（`repository.go`）
+- [x] ログレベルを環境変数（`LOG_LEVEL`）で制御できるようにする（`main.go`）
+- [x] キャッシュヒット/ミスを `slog.Debug` でログ出力する（`cache.go`）
+- [x] プロバイダー呼び出しのレイテンシをログ出力する（`repository.go`）
 
 ## テスト（追加4）
 
-- [ ] エンドツーエンドテスト追加（`/manifestSearch` → `/packageManifests` のフロー全体を検証）
-- [ ] ベンチマークテスト追加（`QueryManifest` の並行アクセス性能計測）
+- [x] エンドツーエンドテスト追加（`/manifestSearch` → `/packageManifests` のフロー全体を検証）
+- [x] ベンチマークテスト追加（`QueryManifest` の並行アクセス性能計測）

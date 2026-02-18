@@ -36,8 +36,8 @@ func (g Github) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Ve
 		return nil, fmt.Errorf("github releases API: %w", err)
 	}
 
-	if len(entry.Token) != 0 {
-		req.Header.Add("Authorization", fmt.Sprintf("token %s", entry.Token))
+	if token := entry.GetToken(); token != "" {
+		req.Header.Add("Authorization", fmt.Sprintf("token %s", token))
 	}
 
 	res, err := g.httpClient.Do(req)

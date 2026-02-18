@@ -74,9 +74,46 @@ func (w WingetSrcRepositoryImpl) fetchVersionsCached(ctx context.Context, entry 
 		return nil, err
 	}
 
-	versions, err := provider.FetchVersions(ctx, entry)
-	if err != nil {
-		return nil, fmt.Errorf("fetch versions: %w", err)
+	const maxAttempts = 3
+	backoff := time.Second
+
+	var versions []Version
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		start := time.Now()
+		versions, err = provider.FetchVersions(ctx, entry)
+		elapsed := time.Since(start)
+
+		if err == nil {
+			slog.Debug("provider fetch succeeded",
+				"package", entry.Id,
+				"provider", entry.Provider,
+				"latency_ms", elapsed.Milliseconds(),
+				"versions", len(versions),
+			)
+			break
+		}
+
+		slog.Warn("provider fetch failed",
+			"package", entry.Id,
+			"provider", entry.Provider,
+			"latency_ms", elapsed.Milliseconds(),
+			"attempt", attempt,
+			"error", err,
+		)
+
+		if attempt == maxAttempts {
+			return nil, fmt.Errorf("fetch versions (after %d attempts): %w", maxAttempts, err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(backoff):
+		}
+
+		if backoff < 8*time.Second {
+			backoff *= 2
+		}
 	}
 
 	w.versionCache.Set(entry.Id, versions)
@@ -193,7 +230,7 @@ func dispatchProvider(entry PackageListEntry, httpClient *http.Client) (PackageP
 	}
 }
 
-func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTTL time.Duration, cacheCleanupInterval time.Duration, httpClientTimeout time.Duration, gracefulDegradation bool) (WingetSrcRepository, error) {
+func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTTL time.Duration, cacheCleanupInterval time.Duration, httpClientTimeout time.Duration, gracefulDegradation bool, cacheMaxEntries int) (WingetSrcRepository, error) {
 	f, err := os.Open(packageListPath)
 	if err != nil {
 		return nil, err
@@ -210,7 +247,7 @@ func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTT
 		packageMap[strings.ToLower(entry.Id)] = entry
 	}
 
-	cache := NewCache[[]Version](cacheTTL)
+	cache := NewCache[[]Version](cacheTTL, cacheMaxEntries)
 	cache.StartCleanup(ctx, cacheCleanupInterval)
 
 	httpClient := &http.Client{Timeout: httpClientTimeout}

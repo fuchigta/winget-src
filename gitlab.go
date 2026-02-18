@@ -40,8 +40,8 @@ func (g Gitlab) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Ve
 		return nil, fmt.Errorf("gitlab releases API: %w", err)
 	}
 
-	if len(entry.Token) != 0 {
-		req.Header.Add("PRIVATE-TOKEN", entry.Token)
+	if token := entry.GetToken(); token != "" {
+		req.Header.Add("PRIVATE-TOKEN", token)
 	}
 
 	res, err := g.httpClient.Do(req)

@@ -7,7 +7,7 @@ import (
 )
 
 func TestCache_SetAndGet(t *testing.T) {
-	c := NewCache[string](1 * time.Minute)
+	c := NewCache[string](1*time.Minute, 0)
 
 	c.Set("key1", "value1")
 	val, ok := c.Get("key1")
@@ -20,7 +20,7 @@ func TestCache_SetAndGet(t *testing.T) {
 }
 
 func TestCache_GetMiss(t *testing.T) {
-	c := NewCache[string](1 * time.Minute)
+	c := NewCache[string](1*time.Minute, 0)
 
 	_, ok := c.Get("nonexistent")
 	if ok {
@@ -29,7 +29,7 @@ func TestCache_GetMiss(t *testing.T) {
 }
 
 func TestCache_TTLExpiration(t *testing.T) {
-	c := NewCache[string](50 * time.Millisecond)
+	c := NewCache[string](50*time.Millisecond, 0)
 
 	c.Set("key1", "value1")
 
@@ -50,7 +50,7 @@ func TestCache_TTLExpiration(t *testing.T) {
 }
 
 func TestCache_Overwrite(t *testing.T) {
-	c := NewCache[string](1 * time.Minute)
+	c := NewCache[string](1*time.Minute, 0)
 
 	c.Set("key1", "value1")
 	c.Set("key1", "value2")
@@ -65,7 +65,7 @@ func TestCache_Overwrite(t *testing.T) {
 }
 
 func TestCache_MultipleKeys(t *testing.T) {
-	c := NewCache[int](1 * time.Minute)
+	c := NewCache[int](1*time.Minute, 0)
 
 	c.Set("a", 1)
 	c.Set("b", 2)
@@ -90,7 +90,7 @@ func TestCache_MultipleKeys(t *testing.T) {
 }
 
 func TestCache_ConcurrentAccess(t *testing.T) {
-	c := NewCache[int](1 * time.Minute)
+	c := NewCache[int](1*time.Minute, 0)
 
 	var wg sync.WaitGroup
 	for i := 0; i < 100; i++ {
