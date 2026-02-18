@@ -60,8 +60,8 @@ func NewWingetSrcHandler(service WingetSrcService, timeout time.Duration) http.H
 		writeJSON(w, http.StatusOK, DataResponse{Data: res})
 	})
 
-	r.Get("/packageManifests/{identifier}", func(w http.ResponseWriter, r *http.Request) {
-		identifier := chi.URLParam(r, "identifier")
+	r.Get("/packageManifests/*", func(w http.ResponseWriter, r *http.Request) {
+		identifier := chi.URLParam(r, "*")
 		version := r.URL.Query().Get("Version")
 
 		res, err := service.PackageManifests(r.Context(), identifier, version)

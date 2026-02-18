@@ -31,8 +31,6 @@ func newE2ERepo(t *testing.T, githubServer *httptest.Server, entries []PackageLi
 	}
 }
 
-// newE2EHandler builds a handler with mock github baseURL injected via dispatchProvider.
-// We override by using a custom repository that uses Github with the test server URL.
 func newE2EHandler(svc WingetSrcService) http.Handler {
 	return NewWingetSrcHandler(svc, 10*time.Second)
 }
@@ -59,10 +57,10 @@ func TestE2E_ManifestSearch_Then_PackageManifests(t *testing.T) {
 	}))
 	defer githubMock.Close()
 
-	// Use dot-separated identifier as required by the WinGet REST API route (/packageManifests/{identifier})
+	// entry.Id は owner/repo 形式（GitHub API パスと WinGet identifier を兼ねる）
 	entry := PackageListEntry{
 		Provider:      "github",
-		Id:            "owner.myapp",
+		Id:            "owner/myapp",
 		Name:          "myapp",
 		Publisher:     "owner",
 		InstallerType: InstallerTypeZipPortable,
@@ -98,8 +96,8 @@ func TestE2E_ManifestSearch_Then_PackageManifests(t *testing.T) {
 		t.Fatalf("manifestSearch: decode response: %v", err)
 	}
 
-	// Step 2: GET /packageManifests/{identifier}
-	req2 := httptest.NewRequest(http.MethodGet, "/packageManifests/owner.myapp", nil)
+	// Step 2: GET /packageManifests/owner/myapp（スラッシュを含む identifier）
+	req2 := httptest.NewRequest(http.MethodGet, "/packageManifests/owner/myapp", nil)
 	w2 := httptest.NewRecorder()
 	handler.ServeHTTP(w2, req2)
 
@@ -124,7 +122,7 @@ func TestE2E_PackageManifests_NoContent_ForUnknownPackage(t *testing.T) {
 	svc := NewWingetSrcService(repo, "api.winget-src")
 	handler := newE2EHandler(svc)
 
-	req := httptest.NewRequest(http.MethodGet, "/packageManifests/nonexistent", nil)
+	req := httptest.NewRequest(http.MethodGet, "/packageManifests/nonexistent/pkg", nil)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 
@@ -142,7 +140,7 @@ func TestE2E_ManifestSearch_EmptyResult(t *testing.T) {
 
 	entry := PackageListEntry{
 		Provider:      "github",
-		Id:            "owner.myapp",
+		Id:            "owner/myapp",
 		Name:          "myapp",
 		Publisher:     "owner",
 		InstallerType: InstallerTypeZipPortable,
@@ -180,7 +178,7 @@ func TestE2E_TokenEnv_UsedForAuth(t *testing.T) {
 
 	entry := PackageListEntry{
 		Provider:      "github",
-		Id:            "owner.myapp",
+		Id:            "owner/myapp",
 		Name:          "myapp",
 		Publisher:     "owner",
 		TokenEnv:      "MY_GITHUB_TOKEN",
