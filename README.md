@@ -94,6 +94,8 @@ docker build -t winget-src .
 | `description` | ✓ | パッケージの説明 |
 | `installer_type` | ✓ | インストーラー形式（`zip-portable`、`msi`、`exe`） |
 | `token` | - | 認証トークン（プライベートリポジトリやレート制限緩和に使用） |
+| `license` | - | ライセンス情報（例: `MIT`） |
+| `executable_name` | - | 実行ファイル名（`zip-portable`専用、省略時は `{name}.exe`） |
 | `endpoint` | - | GitLabのエンドポイント（GitLab専用、デフォルト: `https://gitlab.com`） |
 | `project_id` | - | GitLabのプロジェクトID（GitLab専用） |
 
@@ -114,6 +116,8 @@ export PORT=8080                            # オプション、デフォルト:
 | `HANDLER_TIMEOUT` | `60s` | HTTPハンドラー全体のタイムアウト |
 | `GRACEFUL_DEGRADATION` | `false` | `true` の場合、一部プロバイダー失敗時も他の成功結果を返す |
 | `SOURCE_IDENTIFIER` | `api.winget-src` | WinGet API の SourceIdentifier フィールド値 |
+| `TLS_CERT` | - | TLS証明書ファイルのパス（設定時はHTTPSで起動） |
+| `TLS_KEY` | - | TLS秘密鍵ファイルのパス（`TLS_CERT`と合わせて設定） |
 
 ### 3. サーバーの起動
 
@@ -138,32 +142,46 @@ docker run -e PACKAGE_LIST=/app/packages.yaml \
 
 ### 4. WinGetからの利用
 
-WinGetの設定ファイル（`settings.json`）にカスタムソースを追加します。
-
-```json
-{
-  "experimentalFeatures": {
-    "experimentalMSStore": true
-  },
-  "sources": [
-    {
-      "name": "custom",
-      "arg": "http://localhost:8080",
-      "type": "Microsoft.PreIndexed.Package"
-    }
-  ]
-}
-```
-
-その後、WinGetコマンドでパッケージを検索・インストールできます：
+`winget source add` コマンドでカスタムソースを登録します。WinGetはHTTPSのソースのみ受け付けるため、ローカル環境では証明書の準備が必要です（後述）。
 
 ```powershell
+# ソースの追加
+winget source add -n my-src -a https://<サーバーのホスト名> -t "Microsoft.Rest"
+
 # パッケージ検索
-winget search --source custom
+winget search "CC Launcher" --source my-src
 
 # パッケージインストール
-winget install --id microsoft/powertoys --source custom
+winget install --id fuchigta/cc-launcher --source my-src
+
+# ソースの削除
+winget source remove -n my-src
 ```
+
+### ローカル環境でのHTTPS設定
+
+ローカル動作確認には [mkcert](https://github.com/FiloSottile/mkcert) を使って信頼済み証明書を生成します。
+
+```powershell
+# mkcert のインストールと初期設定（管理者権限で実行）
+winget install FiloSottile.mkcert
+mkcert -install
+
+# プロジェクトルートで証明書を生成
+mkcert localhost 127.0.0.1
+
+# TLS 有効で起動
+$env:PACKAGE_LIST = "packages.yaml"
+$env:TLS_CERT     = "localhost+1.pem"
+$env:TLS_KEY      = "localhost+1-key.pem"
+$env:PORT         = "8443"
+.\winget-src.exe
+
+# WinGet ソースとして登録
+winget source add -n local-src -a https://localhost:8443 -t "Microsoft.Rest"
+```
+
+`TLS_CERT` / `TLS_KEY` を指定しない場合は HTTP で起動します（WinGetからは利用不可）。
 
 ## APIエンドポイント
 
@@ -262,7 +280,7 @@ winget install --id microsoft/powertoys --source custom
 ┌─────────────────┐
 │  WinGet Client  │
 └────────┬────────┘
-         │ HTTP
+         │ HTTPS
          ↓
 ┌─────────────────────────────┐
 │  WingetSrcHandler           │
@@ -380,7 +398,7 @@ GitHub APIはレート制限があります。トークンを設定して制限�
 
 ## ライセンス
 
-このプロジェクトのライセンスについては、リポジトリのオーナーにお問い合わせください。
+MIT License
 
 ## 貢献
 
