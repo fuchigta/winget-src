@@ -51,100 +51,75 @@ func collectChecksums(assets []releaseAsset) (map[string]string, error) {
 	return checksums, nil
 }
 
-func buildZipPortableVersions(entry PackageListEntry, releases []release) ([]Version, error) {
+func buildVersions(releases []release, buildInstallers func(rel release, checksums map[string]string) []Installer) ([]Version, error) {
 	versions := []Version{}
-
 	for _, rel := range releases {
 		checksums, err := collectChecksums(rel.Assets)
 		if err != nil {
 			return nil, err
 		}
+		installers := buildInstallers(rel, checksums)
+		if len(installers) == 0 {
+			continue
+		}
+		versions = append(versions, Version{
+			Version:    rel.Name,
+			Installers: installers,
+		})
+	}
+	return versions, nil
+}
 
+func buildZipPortableVersions(entry PackageListEntry, releases []release) ([]Version, error) {
+	return buildVersions(releases, func(rel release, checksums map[string]string) []Installer {
 		installers := []Installer{}
 		for _, asset := range rel.Assets {
 			lname := strings.ToLower(asset.Name)
 			if !(strings.Contains(lname, "windows") && strings.HasSuffix(lname, ".zip")) {
 				continue
 			}
-
 			arch, ok := detectArch(lname)
 			if !ok {
 				continue
 			}
-
-			checksum := checksums[asset.Name]
-
 			installers = append(installers, Installer{
 				Architecture:        arch,
 				InstallerType:       "zip",
 				InstallerUrl:        asset.DownloadUrl,
-				InstallerSha256:     checksum,
+				InstallerSha256:     checksums[asset.Name],
 				Scope:               "user",
 				NestedInstallerType: "portable",
 				NestedInstallerFiles: []NestedInstallerFile{
-					{
-						RelativeFilePath: fmt.Sprintf("%s.exe", entry.Name),
-					},
+					{RelativeFilePath: fmt.Sprintf("%s.exe", entry.Name)},
 				},
 			})
 		}
-
-		if len(installers) == 0 {
-			continue
-		}
-
-		versions = append(versions, Version{
-			Version:    rel.Name,
-			Installers: installers,
-		})
-	}
-
-	return versions, nil
+		return installers
+	})
 }
 
 func buildInstallerVersions(entry PackageListEntry, releases []release, installerType string, ext string) ([]Version, error) {
-	versions := []Version{}
-
-	for _, rel := range releases {
-		checksums, err := collectChecksums(rel.Assets)
-		if err != nil {
-			return nil, err
-		}
-
+	return buildVersions(releases, func(rel release, checksums map[string]string) []Installer {
 		installers := []Installer{}
 		for _, asset := range rel.Assets {
 			lname := strings.ToLower(asset.Name)
 			if !(strings.Contains(lname, "windows") && strings.HasSuffix(lname, ext)) {
 				continue
 			}
-
 			arch, ok := detectArch(lname)
 			if !ok {
 				continue
 			}
-
-			checksum := checksums[asset.Name]
-
 			installers = append(installers, Installer{
 				Architecture:    arch,
 				InstallerType:   installerType,
 				InstallerUrl:    asset.DownloadUrl,
-				InstallerSha256: checksum,
+				InstallerSha256: checksums[asset.Name],
 				Scope:           "user",
 			})
 		}
-
-		if len(installers) == 0 {
-			continue
-		}
-
-		versions = append(versions, Version{
-			Version:    rel.Name,
-			Installers: installers,
-		})
-	}
-
-	return versions, nil
+		return installers
+	})
 }
 
 func fetchChecksums(url string) (map[string]string, error) {
