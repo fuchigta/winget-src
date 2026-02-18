@@ -28,7 +28,10 @@ func run() int {
 		return exitErr
 	}
 
-	repository, err := NewWingetSrcRepository(packageListPath)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	repository, err := NewWingetSrcRepository(ctx, packageListPath)
 	if err != nil {
 		slog.Error(err.Error())
 		return exitErr
@@ -44,10 +47,6 @@ func run() int {
 		WriteTimeout:      60 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-
-	defer stop()
 
 	go func() {
 		slog.Info("start server listen")

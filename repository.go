@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -158,7 +159,7 @@ func dispatchProvider(entry PackageListEntry) (PackageProvider, error) {
 	}
 }
 
-func NewWingetSrcRepository(packageListPath string) (WingetSrcRepository, error) {
+func NewWingetSrcRepository(ctx context.Context, packageListPath string) (WingetSrcRepository, error) {
 	f, err := os.Open(packageListPath)
 	if err != nil {
 		return nil, err
@@ -170,8 +171,11 @@ func NewWingetSrcRepository(packageListPath string) (WingetSrcRepository, error)
 		return nil, err
 	}
 
+	cache := NewCache[[]Version](5 * time.Minute)
+	cache.StartCleanup(ctx, 10*time.Minute)
+
 	return WingetSrcRepositoryImpl{
 		packageList:  packageList,
-		versionCache: NewCache[[]Version](5 * time.Minute),
+		versionCache: cache,
 	}, nil
 }
