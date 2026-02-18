@@ -71,10 +71,20 @@ func run() int {
 		IdleTimeout:       120 * time.Second,
 	}
 
+	tlsCert := os.Getenv("TLS_CERT")
+	tlsKey := os.Getenv("TLS_KEY")
+
 	go func() {
 		slog.Info("start server listen")
 
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		var err error
+		if tlsCert != "" && tlsKey != "" {
+			slog.Info("TLS enabled", "cert", tlsCert, "key", tlsKey)
+			err = srv.ListenAndServeTLS(tlsCert, tlsKey)
+		} else {
+			err = srv.ListenAndServe()
+		}
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error(err.Error())
 		}
 	}()
