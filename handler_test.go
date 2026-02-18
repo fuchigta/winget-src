@@ -90,7 +90,7 @@ func TestHandler_ManifestSearch_Success(t *testing.T) {
 	}
 	handler := newTestHandler(svc)
 
-	body, _ := json.Marshal(ManifestSearchRequest{Query: Query{Keyword: "foo"}})
+	body, _ := json.Marshal(ManifestSearchRequest{Query: Query{KeyWord: "foo"}})
 	req := httptest.NewRequest(http.MethodPost, "/manifestSearch", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -119,7 +119,7 @@ func TestHandler_ManifestSearch_ServiceError(t *testing.T) {
 	svc := mockService{err: fmt.Errorf("service error")}
 	handler := newTestHandler(svc)
 
-	body, _ := json.Marshal(ManifestSearchRequest{Query: Query{Keyword: "foo"}})
+	body, _ := json.Marshal(ManifestSearchRequest{Query: Query{KeyWord: "foo"}})
 	req := httptest.NewRequest(http.MethodPost, "/manifestSearch", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()

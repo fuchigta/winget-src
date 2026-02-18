@@ -48,8 +48,8 @@ func TestInformation(t *testing.T) {
 	if info.SourceIdentifier != "api.winget-src" {
 		t.Errorf("expected SourceIdentifier 'api.winget-src', got '%s'", info.SourceIdentifier)
 	}
-	if len(info.ServerSupportedVersions) != 2 {
-		t.Errorf("expected 2 supported versions, got %d", len(info.ServerSupportedVersions))
+	if len(info.ServerSupportedVersions) != 3 {
+		t.Errorf("expected 3 supported versions, got %d", len(info.ServerSupportedVersions))
 	}
 }
 
@@ -63,7 +63,7 @@ func TestManifestSearch_ByKeyword(t *testing.T) {
 	svc := NewWingetSrcService(repo, "api.winget-src")
 
 	res, err := svc.ManifestSearch(context.Background(), ManifestSearchRequest{
-		Query: Query{Keyword: "foo"},
+		Query: Query{KeyWord: "foo"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -87,7 +87,7 @@ func TestManifestSearch_ByFilter(t *testing.T) {
 
 	res, err := svc.ManifestSearch(context.Background(), ManifestSearchRequest{
 		Filters: []FieldQuery{
-			{PackageMatchField: PackageMatchFieldPackageIdentifier, RequestMatch: Query{Keyword: "owner/bar"}},
+			{PackageMatchField: PackageMatchFieldPackageIdentifier, RequestMatch: Query{KeyWord: "owner/bar"}},
 		},
 	})
 	if err != nil {
@@ -112,7 +112,7 @@ func TestManifestSearch_ByInclusion(t *testing.T) {
 
 	res, err := svc.ManifestSearch(context.Background(), ManifestSearchRequest{
 		Inclusions: []FieldQuery{
-			{PackageMatchField: PackageMatchFieldPackageName, RequestMatch: Query{Keyword: "bar"}},
+			{PackageMatchField: PackageMatchFieldPackageName, RequestMatch: Query{KeyWord: "bar"}},
 		},
 	})
 	if err != nil {
@@ -130,7 +130,7 @@ func TestManifestSearch_RepositoryError(t *testing.T) {
 	repo := mockRepository{err: fmt.Errorf("repository error")}
 	svc := NewWingetSrcService(repo, "api.winget-src")
 
-	_, err := svc.ManifestSearch(context.Background(), ManifestSearchRequest{Query: Query{Keyword: "foo"}})
+	_, err := svc.ManifestSearch(context.Background(), ManifestSearchRequest{Query: Query{KeyWord: "foo"}})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

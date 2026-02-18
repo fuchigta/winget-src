@@ -78,6 +78,10 @@ func buildZipPortableVersions(ctx context.Context, client *http.Client, entry Pa
 			if !ok {
 				continue
 			}
+			executableName := entry.ExecutableName
+			if executableName == "" {
+				executableName = fmt.Sprintf("%s.exe", entry.Name)
+			}
 			installers = append(installers, Installer{
 				Architecture:        arch,
 				InstallerType:       "zip",
@@ -86,7 +90,7 @@ func buildZipPortableVersions(ctx context.Context, client *http.Client, entry Pa
 				Scope:               "user",
 				NestedInstallerType: "portable",
 				NestedInstallerFiles: []NestedInstallerFile{
-					{RelativeFilePath: fmt.Sprintf("%s.exe", entry.Name)},
+					{RelativeFilePath: executableName},
 				},
 			})
 		}

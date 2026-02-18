@@ -1,7 +1,8 @@
 package main
 
 type Query struct {
-	Keyword string
+	KeyWord   string
+	MatchType string `json:",omitempty"`
 }
 
 const (
@@ -35,9 +36,15 @@ type Manifest struct {
 
 type ManifestSearchResponse []Manifest
 
+type Authentication struct {
+	AuthenticationType string
+}
+
 type InformationResponse struct {
-	SourceIdentifier        string
-	ServerSupportedVersions []string
+	SourceIdentifier              string
+	ServerSupportedVersions       []string
+	Authentication                Authentication
+	UnsupportedPackageMatchFields []string `json:",omitempty"`
 }
 
 type NestedInstallerFile struct {
@@ -69,6 +76,7 @@ type Locale struct {
 	PackageLocale    string
 	Publisher        string
 	PackageName      string
+	License          string
 	ShortDescription string
 }
 

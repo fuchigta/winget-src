@@ -29,14 +29,18 @@ func (w WingetSrcServiceImpl) Information(ctx context.Context) (InformationRespo
 		ServerSupportedVersions: []string{
 			"1.4.0",
 			"1.5.0",
+			"1.9.0",
+		},
+		Authentication: Authentication{
+			AuthenticationType: "none",
 		},
 	}, nil
 }
 func (w WingetSrcServiceImpl) ManifestSearch(ctx context.Context, req ManifestSearchRequest) (ManifestSearchResponse, error) {
 	conditions := []QueryManifestCondition{}
 
-	if req.Query.Keyword != "" {
-		conditions = append(conditions, ByName(req.Query.Keyword))
+	if req.Query.KeyWord != "" {
+		conditions = append(conditions, ByName(req.Query.KeyWord))
 	}
 
 	if len(req.Inclusions) != 0 {
@@ -45,9 +49,9 @@ func (w WingetSrcServiceImpl) ManifestSearch(ctx context.Context, req ManifestSe
 		for _, inclusion := range req.Inclusions {
 			switch inclusion.PackageMatchField {
 			case PackageMatchFieldPackageIdentifier, PackageMatchFieldProductCode:
-				orConds = append(orConds, ById(inclusion.RequestMatch.Keyword))
+				orConds = append(orConds, ById(inclusion.RequestMatch.KeyWord))
 			case PackageMatchFieldPackageName, PackageMatchFieldPackageFamilyName:
-				orConds = append(orConds, ByName(inclusion.RequestMatch.Keyword))
+				orConds = append(orConds, ByName(inclusion.RequestMatch.KeyWord))
 			}
 		}
 
@@ -60,9 +64,9 @@ func (w WingetSrcServiceImpl) ManifestSearch(ctx context.Context, req ManifestSe
 		for _, filter := range req.Filters {
 			switch filter.PackageMatchField {
 			case PackageMatchFieldPackageIdentifier, PackageMatchFieldProductCode:
-				andConds = append(andConds, ById(filter.RequestMatch.Keyword))
+				andConds = append(andConds, ById(filter.RequestMatch.KeyWord))
 			case PackageMatchFieldPackageName, PackageMatchFieldPackageFamilyName:
-				andConds = append(andConds, ByName(filter.RequestMatch.Keyword))
+				andConds = append(andConds, ByName(filter.RequestMatch.KeyWord))
 			}
 		}
 

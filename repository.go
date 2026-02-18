@@ -170,6 +170,7 @@ func (w WingetSrcRepositoryImpl) QueryPackageManifests(ctx context.Context, iden
 				PackageName:      found.Name,
 				PackageLocale:    "en-us",
 				Publisher:        found.Publisher,
+				License:          found.License,
 				ShortDescription: found.Description,
 			},
 		})
