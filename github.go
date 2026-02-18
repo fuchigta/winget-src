@@ -10,6 +10,7 @@ import (
 
 type Github struct {
 	httpClient *http.Client
+	baseURL    string
 }
 
 type githubAsset struct {
@@ -25,7 +26,11 @@ type githubRelease struct {
 
 // FetchVersions implements PackageProvider.
 func (g Github) FetchVersions(entry PackageListEntry) ([]Version, error) {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://api.github.com/repos/%s/releases", entry.Id), nil)
+	baseURL := g.baseURL
+	if baseURL == "" {
+		baseURL = "https://api.github.com"
+	}
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/repos/%s/releases", baseURL, entry.Id), nil)
 	if err != nil {
 		return nil, fmt.Errorf("github releases API: %w", err)
 	}
