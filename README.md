@@ -388,7 +388,7 @@ GitHub APIはレート制限があります。トークンを設定して制限�
 
 ## 作者
 
-fuchigta <fuchigta@alpha.co.jp>
+fuchigta
 
 ## 関連リンク
 
