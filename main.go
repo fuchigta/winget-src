@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -74,13 +75,25 @@ func run() int {
 	tlsCert := os.Getenv("TLS_CERT")
 	tlsKey := os.Getenv("TLS_KEY")
 
+	if tlsCert != "" && tlsKey != "" {
+		cert, err := tls.LoadX509KeyPair(tlsCert, tlsKey)
+		if err != nil {
+			slog.Error("failed to load TLS certificate", "error", err)
+			return exitErr
+		}
+		srv.TLSConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		}
+	}
+
 	go func() {
 		slog.Info("start server listen")
 
 		var err error
-		if tlsCert != "" && tlsKey != "" {
+		if srv.TLSConfig != nil {
 			slog.Info("TLS enabled", "cert", tlsCert, "key", tlsKey)
-			err = srv.ListenAndServeTLS(tlsCert, tlsKey)
+			err = srv.ListenAndServeTLS("", "")
 		} else {
 			err = srv.ListenAndServe()
 		}
