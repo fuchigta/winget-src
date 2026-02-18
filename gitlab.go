@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,8 +29,8 @@ type gitlabRelease struct {
 }
 
 // FetchVersions implements PackageProvider.
-func (g Gitlab) FetchVersions(entry PackageListEntry) ([]Version, error) {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v4/projects/%d/releases", entry.Endpoint, entry.ProjectID), nil)
+func (g Gitlab) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Version, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v4/projects/%d/releases", entry.Endpoint, entry.ProjectID), nil)
 	if err != nil {
 		return nil, fmt.Errorf("gitlab releases API: %w", err)
 	}

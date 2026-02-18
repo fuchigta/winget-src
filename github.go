@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,12 +26,12 @@ type githubRelease struct {
 }
 
 // FetchVersions implements PackageProvider.
-func (g Github) FetchVersions(entry PackageListEntry) ([]Version, error) {
+func (g Github) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Version, error) {
 	baseURL := g.baseURL
 	if baseURL == "" {
 		baseURL = "https://api.github.com"
 	}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/repos/%s/releases", baseURL, entry.Id), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/repos/%s/releases", baseURL, entry.Id), nil)
 	if err != nil {
 		return nil, fmt.Errorf("github releases API: %w", err)
 	}

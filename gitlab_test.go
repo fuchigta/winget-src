@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -42,7 +43,7 @@ func TestGitlab_FetchVersions_ZipPortable(t *testing.T) {
 		InstallerType: InstallerTypeZipPortable,
 	}
 
-	versions, err := g.FetchVersions(entry)
+	versions, err := g.FetchVersions(context.Background(), entry)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -94,7 +95,7 @@ func TestGitlab_FetchVersions_Exe(t *testing.T) {
 		InstallerType: InstallerTypeExe,
 	}
 
-	versions, err := g.FetchVersions(entry)
+	versions, err := g.FetchVersions(context.Background(), entry)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -124,7 +125,7 @@ func TestGitlab_FetchVersions_ErrorResponse(t *testing.T) {
 		InstallerType: InstallerTypeZipPortable,
 	}
 
-	_, err := g.FetchVersions(entry)
+	_, err := g.FetchVersions(context.Background(), entry)
 	if err == nil {
 		t.Fatal("expected error for non-200 status")
 	}
@@ -150,7 +151,7 @@ func TestGitlab_FetchVersions_WithToken(t *testing.T) {
 		InstallerType: InstallerTypeZipPortable,
 	}
 
-	_, err := g.FetchVersions(entry)
+	_, err := g.FetchVersions(context.Background(), entry)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -177,7 +178,7 @@ func TestGitlab_FetchVersions_UnknownInstallerType(t *testing.T) {
 		InstallerType: "unknown-type",
 	}
 
-	_, err := g.FetchVersions(entry)
+	_, err := g.FetchVersions(context.Background(), entry)
 	if err == nil {
 		t.Fatal("expected error for unknown installer type")
 	}

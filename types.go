@@ -1,5 +1,7 @@
 package main
 
+import "context"
+
 const (
 	InstallerTypeZipPortable = "zip-portable"
 	InstallerTypeMsi         = "msi"
@@ -24,5 +26,5 @@ type Version struct {
 }
 
 type PackageProvider interface {
-	FetchVersions(PackageListEntry) ([]Version, error)
+	FetchVersions(ctx context.Context, entry PackageListEntry) ([]Version, error)
 }

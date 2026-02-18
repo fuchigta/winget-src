@@ -13,8 +13,8 @@ import (
 type QueryManifestCondition func(PackageListEntry) bool
 
 type WingetSrcRepository interface {
-	QueryManifest(condition QueryManifestCondition) ([]Manifest, error)
-	QueryPackageManifests(identifier string) (PackageManifests, error)
+	QueryManifest(ctx context.Context, condition QueryManifestCondition) ([]Manifest, error)
+	QueryPackageManifests(ctx context.Context, identifier string) (PackageManifests, error)
 }
 
 type WingetSrcRepositoryImpl struct {
@@ -58,7 +58,7 @@ func And(conditions ...QueryManifestCondition) QueryManifestCondition {
 	}
 }
 
-func (w WingetSrcRepositoryImpl) fetchVersionsCached(entry PackageListEntry) ([]Version, error) {
+func (w WingetSrcRepositoryImpl) fetchVersionsCached(ctx context.Context, entry PackageListEntry) ([]Version, error) {
 	if cached, ok := w.versionCache.Get(entry.Id); ok {
 		return cached, nil
 	}
@@ -68,7 +68,7 @@ func (w WingetSrcRepositoryImpl) fetchVersionsCached(entry PackageListEntry) ([]
 		return nil, fmt.Errorf("unknown package provider")
 	}
 
-	versions, err := provider.FetchVersions(entry)
+	versions, err := provider.FetchVersions(ctx, entry)
 	if err != nil {
 		return nil, fmt.Errorf("fetch versions: %w", err)
 	}
@@ -77,7 +77,7 @@ func (w WingetSrcRepositoryImpl) fetchVersionsCached(entry PackageListEntry) ([]
 	return versions, nil
 }
 
-func (w WingetSrcRepositoryImpl) QueryManifest(condition QueryManifestCondition) ([]Manifest, error) {
+func (w WingetSrcRepositoryImpl) QueryManifest(ctx context.Context, condition QueryManifestCondition) ([]Manifest, error) {
 	manifests := []Manifest{}
 
 	for _, entry := range w.packageList {
@@ -85,7 +85,7 @@ func (w WingetSrcRepositoryImpl) QueryManifest(condition QueryManifestCondition)
 			continue
 		}
 
-		versions, err := w.fetchVersionsCached(entry)
+		versions, err := w.fetchVersionsCached(ctx, entry)
 		if err != nil {
 			return nil, err
 		}
@@ -109,7 +109,7 @@ func (w WingetSrcRepositoryImpl) QueryManifest(condition QueryManifestCondition)
 	return manifests, nil
 }
 
-func (w WingetSrcRepositoryImpl) QueryPackageManifests(identifier string) (PackageManifests, error) {
+func (w WingetSrcRepositoryImpl) QueryPackageManifests(ctx context.Context, identifier string) (PackageManifests, error) {
 	var found PackageListEntry
 	for _, entry := range w.packageList {
 		if strings.EqualFold(entry.Id, identifier) {
@@ -122,7 +122,7 @@ func (w WingetSrcRepositoryImpl) QueryPackageManifests(identifier string) (Packa
 		return PackageManifests{}, nil
 	}
 
-	versions, err := w.fetchVersionsCached(found)
+	versions, err := w.fetchVersionsCached(ctx, found)
 	if err != nil {
 		return PackageManifests{}, err
 	}

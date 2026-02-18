@@ -31,7 +31,7 @@ func NewWingetSrcHandler(service WingetSrcService) http.Handler {
 	})
 
 	r.Get("/information", func(w http.ResponseWriter, r *http.Request) {
-		res, err := service.Information()
+		res, err := service.Information(r.Context())
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 				{
@@ -56,7 +56,7 @@ func NewWingetSrcHandler(service WingetSrcService) http.Handler {
 			return
 		}
 
-		res, err := service.ManifestSearch(req)
+		res, err := service.ManifestSearch(r.Context(), req)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 				{
@@ -74,7 +74,7 @@ func NewWingetSrcHandler(service WingetSrcService) http.Handler {
 		identifier := chi.URLParam(r, "identifier")
 		version := r.URL.Query().Get("Version")
 
-		res, err := service.PackageManifests(identifier, version)
+		res, err := service.PackageManifests(r.Context(), identifier, version)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, ErrorResponse{
 				{
