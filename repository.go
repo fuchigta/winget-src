@@ -151,9 +151,9 @@ func (w WingetSrcRepositoryImpl) QueryPackageManifests(identifier string) (Packa
 func dispatchProvider(entry PackageListEntry) (PackageProvider, error) {
 	switch entry.Provider {
 	case "github":
-		return Github{}, nil
+		return Github{httpClient: defaultHTTPClient}, nil
 	case "gitlab":
-		return Gitlab{}, nil
+		return Gitlab{httpClient: defaultHTTPClient}, nil
 	default:
 		return nil, fmt.Errorf("unknown package provider")
 	}

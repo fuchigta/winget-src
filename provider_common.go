@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-var httpClient = &http.Client{
+var defaultHTTPClient = &http.Client{
 	Timeout: 30 * time.Second,
 }
 
@@ -35,11 +35,11 @@ func detectArch(lname string) (string, bool) {
 	return "", false
 }
 
-func collectChecksums(assets []releaseAsset) (map[string]string, error) {
+func collectChecksums(client *http.Client, assets []releaseAsset) (map[string]string, error) {
 	checksums := map[string]string{}
 	for _, asset := range assets {
 		if asset.IsChecksum {
-			cs, err := fetchChecksums(asset.DownloadUrl)
+			cs, err := fetchChecksums(client, asset.DownloadUrl)
 			if err != nil {
 				return nil, err
 			}
@@ -51,10 +51,10 @@ func collectChecksums(assets []releaseAsset) (map[string]string, error) {
 	return checksums, nil
 }
 
-func buildVersions(releases []release, buildInstallers func(rel release, checksums map[string]string) []Installer) ([]Version, error) {
+func buildVersions(client *http.Client, releases []release, buildInstallers func(rel release, checksums map[string]string) []Installer) ([]Version, error) {
 	versions := []Version{}
 	for _, rel := range releases {
-		checksums, err := collectChecksums(rel.Assets)
+		checksums, err := collectChecksums(client, rel.Assets)
 		if err != nil {
 			return nil, err
 		}
@@ -70,8 +70,8 @@ func buildVersions(releases []release, buildInstallers func(rel release, checksu
 	return versions, nil
 }
 
-func buildZipPortableVersions(entry PackageListEntry, releases []release) ([]Version, error) {
-	return buildVersions(releases, func(rel release, checksums map[string]string) []Installer {
+func buildZipPortableVersions(client *http.Client, entry PackageListEntry, releases []release) ([]Version, error) {
+	return buildVersions(client, releases, func(rel release, checksums map[string]string) []Installer {
 		installers := []Installer{}
 		for _, asset := range rel.Assets {
 			lname := strings.ToLower(asset.Name)
@@ -98,8 +98,8 @@ func buildZipPortableVersions(entry PackageListEntry, releases []release) ([]Ver
 	})
 }
 
-func buildInstallerVersions(entry PackageListEntry, releases []release, installerType string, ext string) ([]Version, error) {
-	return buildVersions(releases, func(rel release, checksums map[string]string) []Installer {
+func buildInstallerVersions(client *http.Client, entry PackageListEntry, releases []release, installerType string, ext string) ([]Version, error) {
+	return buildVersions(client, releases, func(rel release, checksums map[string]string) []Installer {
 		installers := []Installer{}
 		for _, asset := range rel.Assets {
 			lname := strings.ToLower(asset.Name)
@@ -122,8 +122,8 @@ func buildInstallerVersions(entry PackageListEntry, releases []release, installe
 	})
 }
 
-func fetchChecksums(url string) (map[string]string, error) {
-	res, err := httpClient.Get(url)
+func fetchChecksums(client *http.Client, url string) (map[string]string, error) {
+	res, err := client.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("checksum download: %w", err)
 	}

@@ -9,6 +9,7 @@ import (
 )
 
 type Gitlab struct {
+	httpClient *http.Client
 }
 
 type gitlabAssetLink struct {
@@ -37,7 +38,7 @@ func (g Gitlab) FetchVersions(entry PackageListEntry) ([]Version, error) {
 		req.Header.Add("PRIVATE-TOKEN", entry.Token)
 	}
 
-	res, err := httpClient.Do(req)
+	res, err := g.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("gitlab releases API: %w", err)
 	}
@@ -69,11 +70,11 @@ func (g Gitlab) FetchVersions(entry PackageListEntry) ([]Version, error) {
 
 	switch entry.InstallerType {
 	case InstallerTypeZipPortable:
-		return buildZipPortableVersions(entry, releases)
+		return buildZipPortableVersions(g.httpClient, entry, releases)
 	case InstallerTypeMsi:
-		return buildInstallerVersions(entry, releases, InstallerTypeMsi, ".msi")
+		return buildInstallerVersions(g.httpClient, entry, releases, InstallerTypeMsi, ".msi")
 	case InstallerTypeExe:
-		return buildInstallerVersions(entry, releases, InstallerTypeExe, ".exe")
+		return buildInstallerVersions(g.httpClient, entry, releases, InstallerTypeExe, ".exe")
 	default:
 		return nil, fmt.Errorf("unknown installer type: %s", entry.InstallerType)
 	}
