@@ -11,3 +11,4 @@
 dist/
 .claude/plans/
 .claude/settings.local.json
+HANDOFF.md
