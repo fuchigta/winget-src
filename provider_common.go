@@ -25,11 +25,11 @@ type release struct {
 }
 
 func detectArch(lname string) (string, bool) {
-	if strings.Contains(lname, "x86_64") || strings.Contains(lname, "x64") {
+	if strings.Contains(lname, "x86_64") || strings.Contains(lname, "x64") || strings.Contains(lname, "amd64") {
 		return "x64", true
 	} else if strings.Contains(lname, "i386") || strings.Contains(lname, "x86") {
 		return "x86", true
-	} else if strings.Contains(lname, "arm64") {
+	} else if strings.Contains(lname, "arm64") || strings.Contains(lname, "aarch64") {
 		return "arm64", true
 	}
 	return "", false
