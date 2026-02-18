@@ -104,3 +104,30 @@
 - [x] Dockerfile の追加（コンテナデプロイ対応）
 - [x] `packages.yaml` のサンプルファイル追加（利用者向けのクイックスタート用）
 - [x] Graceful degradation — 一部プロバイダーのAPI呼び出しが失敗しても、成功したパッケージだけ返すオプション（現状は1件でもエラーなら全体失敗）
+
+## 設定管理（追加）
+
+- [ ] コマンドラインフラグ対応を追加し、環境変数の代替手段として使えるようにする（`main.go`）
+  - `ff`（peterbourgon/ff）の利用を検討：フラグ > 環境変数 > デフォルトの優先度を自動制御できる軽量ライブラリ
+  - 参考: https://github.com/peterbourgon/ff
+- [ ] `token_env` フィールドを `PackageListEntry` に追加し、環境変数名でトークンを参照できるようにする（`types.go`, `github.go`, `gitlab.go`）
+
+## セキュリティ（追加）
+
+- [ ] TLS設定に `MinVersion: tls.VersionTLS13` を指定し、TLS 1.2 接続を禁止する（`main.go`）
+
+## キャッシュ・パフォーマンス（追加）
+
+- [ ] `cache.go` — エントリ数の上限（`maxEntries`）を設けてメモリ使用量を制御する
+- [ ] `fetchVersionsCached` にリトライロジックを追加する（外部API一時障害への対応）（`repository.go`）
+
+## ロギング・観測可能性（追加）
+
+- [ ] ログレベルを環境変数（`LOG_LEVEL`）で制御できるようにする（`main.go`）
+- [ ] キャッシュヒット/ミスを `slog.Debug` でログ出力する（`cache.go`）
+- [ ] プロバイダー呼び出しのレイテンシをログ出力する（`repository.go`）
+
+## テスト（追加4）
+
+- [ ] エンドツーエンドテスト追加（`/manifestSearch` → `/packageManifests` のフロー全体を検証）
+- [ ] ベンチマークテスト追加（`QueryManifest` の並行アクセス性能計測）
