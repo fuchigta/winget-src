@@ -44,8 +44,8 @@
 
 ## バグ・不具合（追加2）
 
-- [ ] `service.go:85` — バージョンフィルタリングの `break` が不要。意図が不明確なので削除する
-- [ ] `repository.go:114` — `QueryPackageManifests` の identifier 比較が `==` で大文字小文字を区別している。`strings.EqualFold` に統一すべき
+- [x] `service.go:85` — バージョンフィルタリングの `break` が不要。意図が不明確なので削除する
+- [x] `repository.go:114` — `QueryPackageManifests` の identifier 比較が `==` で大文字小文字を区別している。`strings.EqualFold` に統一すべき
 - [ ] `main.go:52-54` — `ListenAndServe` のエラーハンドリングが不正。`ErrServerClosed` 以外のエラー（ポート競合等）が無視される
 - [ ] `provider_common.go:27-35` — `detectArch` が `amd64`, `aarch64` に未対応
 
