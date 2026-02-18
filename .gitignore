@@ -9,3 +9,5 @@
 !.goreleaser.yaml
 
 dist/
+.claude/plans/
+.claude/settings.local.json
