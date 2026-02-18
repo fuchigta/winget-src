@@ -49,8 +49,8 @@ func run() int {
 	go func() {
 		slog.Info("start server listen")
 
-		if err := srv.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
-			slog.Info(err.Error())
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error(err.Error())
 		}
 	}()
 
