@@ -12,18 +12,20 @@ type WingetSrcService interface {
 }
 
 type WingetSrcServiceImpl struct {
-	repository WingetSrcRepository
+	repository       WingetSrcRepository
+	sourceIdentifier string
 }
 
-func NewWingetSrcService(repository WingetSrcRepository) WingetSrcService {
+func NewWingetSrcService(repository WingetSrcRepository, sourceIdentifier string) WingetSrcService {
 	return WingetSrcServiceImpl{
-		repository: repository,
+		repository:       repository,
+		sourceIdentifier: sourceIdentifier,
 	}
 }
 
 func (w WingetSrcServiceImpl) Information(ctx context.Context) (InformationResponse, error) {
 	return InformationResponse{
-		SourceIdentifier: "api.winget-src",
+		SourceIdentifier: w.sourceIdentifier,
 		ServerSupportedVersions: []string{
 			"1.4.0",
 			"1.5.0",

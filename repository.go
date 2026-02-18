@@ -3,8 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -18,8 +21,11 @@ type WingetSrcRepository interface {
 }
 
 type WingetSrcRepositoryImpl struct {
-	packageList   []PackageListEntry
-	versionCache  *Cache[[]Version]
+	packageList         []PackageListEntry
+	packageMap          map[string]PackageListEntry
+	versionCache        *Cache[[]Version]
+	httpClient          *http.Client
+	gracefulDegradation bool
 }
 
 func ById(id string) QueryManifestCondition {
@@ -63,9 +69,9 @@ func (w WingetSrcRepositoryImpl) fetchVersionsCached(ctx context.Context, entry 
 		return cached, nil
 	}
 
-	provider, err := dispatchProvider(entry)
+	provider, err := dispatchProvider(entry, w.httpClient)
 	if err != nil {
-		return nil, fmt.Errorf("unknown package provider")
+		return nil, err
 	}
 
 	versions, err := provider.FetchVersions(ctx, entry)
@@ -78,47 +84,74 @@ func (w WingetSrcRepositoryImpl) fetchVersionsCached(ctx context.Context, entry 
 }
 
 func (w WingetSrcRepositoryImpl) QueryManifest(ctx context.Context, condition QueryManifestCondition) ([]Manifest, error) {
-	manifests := []Manifest{}
-
+	matched := []PackageListEntry{}
 	for _, entry := range w.packageList {
-		if !condition(entry) {
-			continue
+		if condition(entry) {
+			matched = append(matched, entry)
 		}
+	}
 
-		versions, err := w.fetchVersionsCached(ctx, entry)
-		if err != nil {
-			return nil, err
+	if len(matched) == 0 {
+		return []Manifest{}, nil
+	}
+
+	type result struct {
+		index    int
+		manifest Manifest
+		err      error
+	}
+
+	results := make([]result, len(matched))
+	var wg sync.WaitGroup
+	wg.Add(len(matched))
+
+	for i, entry := range matched {
+		i, entry := i, entry
+		go func() {
+			defer wg.Done()
+			versions, err := w.fetchVersionsCached(ctx, entry)
+			if err != nil {
+				results[i] = result{index: i, err: err}
+				return
+			}
+			manifestVersions := []ManifestVersion{}
+			for _, version := range versions {
+				manifestVersions = append(manifestVersions, ManifestVersion{
+					PackageVersion: version.Version,
+				})
+			}
+			results[i] = result{
+				index: i,
+				manifest: Manifest{
+					PackageIdentifier: entry.Id,
+					PackageName:       entry.Name,
+					Publisher:         entry.Publisher,
+					Versions:          manifestVersions,
+				},
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	manifests := []Manifest{}
+	for _, r := range results {
+		if r.err != nil {
+			if w.gracefulDegradation {
+				slog.Warn("failed to fetch versions, skipping package", "package", matched[r.index].Id, "error", r.err)
+				continue
+			}
+			return nil, r.err
 		}
-
-		manifestVersions := []ManifestVersion{}
-
-		for _, version := range versions {
-			manifestVersions = append(manifestVersions, ManifestVersion{
-				PackageVersion: version.Version,
-			})
-		}
-
-		manifests = append(manifests, Manifest{
-			PackageIdentifier: entry.Id,
-			PackageName:       entry.Name,
-			Publisher:         entry.Publisher,
-			Versions:          manifestVersions,
-		})
+		manifests = append(manifests, r.manifest)
 	}
 
 	return manifests, nil
 }
 
 func (w WingetSrcRepositoryImpl) QueryPackageManifests(ctx context.Context, identifier string) (PackageManifests, error) {
-	var found PackageListEntry
-	for _, entry := range w.packageList {
-		if strings.EqualFold(entry.Id, identifier) {
-			found = entry
-			break
-		}
-	}
-
-	if found.Id == "" {
+	found, ok := w.packageMap[strings.ToLower(identifier)]
+	if !ok {
 		return PackageManifests{}, nil
 	}
 
@@ -148,18 +181,18 @@ func (w WingetSrcRepositoryImpl) QueryPackageManifests(ctx context.Context, iden
 	}, nil
 }
 
-func dispatchProvider(entry PackageListEntry) (PackageProvider, error) {
+func dispatchProvider(entry PackageListEntry, httpClient *http.Client) (PackageProvider, error) {
 	switch entry.Provider {
 	case "github":
-		return Github{httpClient: defaultHTTPClient}, nil
+		return Github{httpClient: httpClient}, nil
 	case "gitlab":
-		return Gitlab{httpClient: defaultHTTPClient}, nil
+		return Gitlab{httpClient: httpClient}, nil
 	default:
-		return nil, fmt.Errorf("unknown package provider")
+		return nil, fmt.Errorf("unknown package provider: %s", entry.Provider)
 	}
 }
 
-func NewWingetSrcRepository(ctx context.Context, packageListPath string) (WingetSrcRepository, error) {
+func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTTL time.Duration, cacheCleanupInterval time.Duration, httpClientTimeout time.Duration, gracefulDegradation bool) (WingetSrcRepository, error) {
 	f, err := os.Open(packageListPath)
 	if err != nil {
 		return nil, err
@@ -171,11 +204,21 @@ func NewWingetSrcRepository(ctx context.Context, packageListPath string) (Winget
 		return nil, err
 	}
 
-	cache := NewCache[[]Version](5 * time.Minute)
-	cache.StartCleanup(ctx, 10*time.Minute)
+	packageMap := make(map[string]PackageListEntry, len(packageList))
+	for _, entry := range packageList {
+		packageMap[strings.ToLower(entry.Id)] = entry
+	}
+
+	cache := NewCache[[]Version](cacheTTL)
+	cache.StartCleanup(ctx, cacheCleanupInterval)
+
+	httpClient := &http.Client{Timeout: httpClientTimeout}
 
 	return WingetSrcRepositoryImpl{
-		packageList:  packageList,
-		versionCache: cache,
+		packageList:         packageList,
+		packageMap:          packageMap,
+		versionCache:        cache,
+		httpClient:          httpClient,
+		gracefulDegradation: gracefulDegradation,
 	}, nil
 }

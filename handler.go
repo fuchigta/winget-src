@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-func writeJSON(w http.ResponseWriter, status int, v interface{}) {
+func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
@@ -18,13 +18,17 @@ func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	}
 }
 
-func NewWingetSrcHandler(service WingetSrcService) http.Handler {
+func writeError(w http.ResponseWriter, status int, err error) {
+	writeJSON(w, status, ErrorResponse{{ErrorCode: status, ErrorMessage: err.Error()}})
+}
+
+func NewWingetSrcHandler(service WingetSrcService, timeout time.Duration) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(middleware.Timeout(timeout))
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -33,37 +37,23 @@ func NewWingetSrcHandler(service WingetSrcService) http.Handler {
 	r.Get("/information", func(w http.ResponseWriter, r *http.Request) {
 		res, err := service.Information(r.Context())
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, ErrorResponse{
-				{
-					ErrorCode:    http.StatusInternalServerError,
-					ErrorMessage: err.Error(),
-				},
-			})
+			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, DataResponse{Data: res})
 	})
 
 	r.Post("/manifestSearch", func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1MB limit
 		var req ManifestSearchRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeJSON(w, http.StatusBadRequest, ErrorResponse{
-				{
-					ErrorCode:    http.StatusBadRequest,
-					ErrorMessage: err.Error(),
-				},
-			})
+			writeError(w, http.StatusBadRequest, err)
 			return
 		}
 
 		res, err := service.ManifestSearch(r.Context(), req)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, ErrorResponse{
-				{
-					ErrorCode:    http.StatusInternalServerError,
-					ErrorMessage: err.Error(),
-				},
-			})
+			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
 
@@ -76,12 +66,7 @@ func NewWingetSrcHandler(service WingetSrcService) http.Handler {
 
 		res, err := service.PackageManifests(r.Context(), identifier, version)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, ErrorResponse{
-				{
-					ErrorCode:    http.StatusInternalServerError,
-					ErrorMessage: err.Error(),
-				},
-			})
+			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
 

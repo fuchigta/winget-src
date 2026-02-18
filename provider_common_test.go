@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -49,7 +50,7 @@ func TestBuildZipPortableVersions(t *testing.T) {
 		},
 	}
 
-	versions, err := buildZipPortableVersions(http.DefaultClient, entry, releases)
+	versions, err := buildZipPortableVersions(context.Background(), http.DefaultClient, entry, releases)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -91,7 +92,7 @@ func TestBuildZipPortableVersions_NoMatch(t *testing.T) {
 		},
 	}
 
-	versions, err := buildZipPortableVersions(http.DefaultClient, entry, releases)
+	versions, err := buildZipPortableVersions(context.Background(), http.DefaultClient, entry, releases)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -114,7 +115,7 @@ func TestBuildInstallerVersions_Msi(t *testing.T) {
 		},
 	}
 
-	versions, err := buildInstallerVersions(http.DefaultClient, entry, releases, "msi", ".msi")
+	versions, err := buildInstallerVersions(context.Background(), http.DefaultClient, entry, releases, "msi", ".msi")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -149,7 +150,7 @@ func TestBuildInstallerVersions_NoMatch(t *testing.T) {
 		},
 	}
 
-	versions, err := buildInstallerVersions(http.DefaultClient, entry, releases, "exe", ".exe")
+	versions, err := buildInstallerVersions(context.Background(), http.DefaultClient, entry, releases, "exe", ".exe")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -166,7 +167,7 @@ func TestFetchChecksums_Success(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	checksums, err := fetchChecksums(ts.Client(), ts.URL)
+	checksums, err := fetchChecksums(context.Background(), ts.Client(), ts.URL)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -191,7 +192,7 @@ func TestFetchChecksums_BadStatus(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	_, err := fetchChecksums(ts.Client(), ts.URL)
+	_, err := fetchChecksums(context.Background(), ts.Client(), ts.URL)
 	if err == nil {
 		t.Fatal("expected error for non-200 status")
 	}
@@ -203,8 +204,67 @@ func TestFetchChecksums_BadFormat(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	_, err := fetchChecksums(ts.Client(), ts.URL)
+	_, err := fetchChecksums(context.Background(), ts.Client(), ts.URL)
 	if err == nil {
 		t.Fatal("expected error for bad checksum format")
+	}
+}
+
+func TestCollectChecksums_MultipleAssets(t *testing.T) {
+	ts1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "abc123 myapp_windows_x64.zip")
+	}))
+	defer ts1.Close()
+
+	ts2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "def456 myapp_windows_arm64.zip")
+	}))
+	defer ts2.Close()
+
+	assets := []releaseAsset{
+		{Name: "checksums_x64.txt", DownloadUrl: ts1.URL, IsChecksum: true},
+		{Name: "checksums_arm64.txt", DownloadUrl: ts2.URL, IsChecksum: true},
+		{Name: "myapp_windows_x64.zip", DownloadUrl: "https://example.com/myapp_windows_x64.zip", IsChecksum: false},
+	}
+
+	checksums, err := collectChecksums(context.Background(), ts1.Client(), assets)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(checksums) != 2 {
+		t.Fatalf("expected 2 checksums, got %d", len(checksums))
+	}
+	if checksums["myapp_windows_x64.zip"] != "abc123" {
+		t.Errorf("unexpected checksum for x64: %s", checksums["myapp_windows_x64.zip"])
+	}
+	if checksums["myapp_windows_arm64.zip"] != "def456" {
+		t.Errorf("unexpected checksum for arm64: %s", checksums["myapp_windows_arm64.zip"])
+	}
+}
+
+func TestCollectChecksums_NoChecksumAssets(t *testing.T) {
+	assets := []releaseAsset{
+		{Name: "myapp_windows_x64.zip", DownloadUrl: "https://example.com/myapp_windows_x64.zip", IsChecksum: false},
+	}
+
+	checksums, err := collectChecksums(context.Background(), http.DefaultClient, assets)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(checksums) != 0 {
+		t.Errorf("expected 0 checksums, got %d", len(checksums))
+	}
+}
+
+func TestCollectChecksums_FetchError(t *testing.T) {
+	assets := []releaseAsset{
+		{Name: "checksums.txt", DownloadUrl: "http://127.0.0.1:0/nonexistent", IsChecksum: true},
+	}
+
+	_, err := collectChecksums(context.Background(), http.DefaultClient, assets)
+	if err == nil {
+		t.Fatal("expected error when fetching checksums fails")
 	}
 }

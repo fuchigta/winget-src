@@ -40,7 +40,7 @@ func (m mockRepository) QueryPackageManifests(ctx context.Context, identifier st
 }
 
 func TestInformation(t *testing.T) {
-	svc := NewWingetSrcService(mockRepository{})
+	svc := NewWingetSrcService(mockRepository{}, "api.winget-src")
 	info, err := svc.Information(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -60,7 +60,7 @@ func TestManifestSearch_ByKeyword(t *testing.T) {
 			{PackageIdentifier: "owner/bar", PackageName: "bar", Publisher: "owner"},
 		},
 	}
-	svc := NewWingetSrcService(repo)
+	svc := NewWingetSrcService(repo, "api.winget-src")
 
 	res, err := svc.ManifestSearch(context.Background(), ManifestSearchRequest{
 		Query: Query{Keyword: "foo"},
@@ -83,7 +83,7 @@ func TestManifestSearch_ByFilter(t *testing.T) {
 			{PackageIdentifier: "owner/bar", PackageName: "bar", Publisher: "owner"},
 		},
 	}
-	svc := NewWingetSrcService(repo)
+	svc := NewWingetSrcService(repo, "api.winget-src")
 
 	res, err := svc.ManifestSearch(context.Background(), ManifestSearchRequest{
 		Filters: []FieldQuery{
@@ -108,7 +108,7 @@ func TestManifestSearch_ByInclusion(t *testing.T) {
 			{PackageIdentifier: "owner/bar", PackageName: "bar", Publisher: "owner"},
 		},
 	}
-	svc := NewWingetSrcService(repo)
+	svc := NewWingetSrcService(repo, "api.winget-src")
 
 	res, err := svc.ManifestSearch(context.Background(), ManifestSearchRequest{
 		Inclusions: []FieldQuery{
@@ -128,7 +128,7 @@ func TestManifestSearch_ByInclusion(t *testing.T) {
 
 func TestManifestSearch_RepositoryError(t *testing.T) {
 	repo := mockRepository{err: fmt.Errorf("repository error")}
-	svc := NewWingetSrcService(repo)
+	svc := NewWingetSrcService(repo, "api.winget-src")
 
 	_, err := svc.ManifestSearch(context.Background(), ManifestSearchRequest{Query: Query{Keyword: "foo"}})
 	if err == nil {
@@ -146,7 +146,7 @@ func TestPackageManifests_Found(t *testing.T) {
 			},
 		},
 	}
-	svc := NewWingetSrcService(repo)
+	svc := NewWingetSrcService(repo, "api.winget-src")
 
 	res, err := svc.PackageManifests(context.Background(), "owner/foo", "")
 	if err != nil {
@@ -167,7 +167,7 @@ func TestPackageManifests_WithVersion(t *testing.T) {
 			},
 		},
 	}
-	svc := NewWingetSrcService(repo)
+	svc := NewWingetSrcService(repo, "api.winget-src")
 
 	res, err := svc.PackageManifests(context.Background(), "owner/foo", "2.0.0")
 	if err != nil {
@@ -190,7 +190,7 @@ func TestPackageManifests_VersionNotFound(t *testing.T) {
 			},
 		},
 	}
-	svc := NewWingetSrcService(repo)
+	svc := NewWingetSrcService(repo, "api.winget-src")
 
 	_, err := svc.PackageManifests(context.Background(), "owner/foo", "9.9.9")
 	if err == nil {
@@ -200,7 +200,7 @@ func TestPackageManifests_VersionNotFound(t *testing.T) {
 
 func TestPackageManifests_NotFound(t *testing.T) {
 	repo := mockRepository{}
-	svc := NewWingetSrcService(repo)
+	svc := NewWingetSrcService(repo, "api.winget-src")
 
 	res, err := svc.PackageManifests(context.Background(), "nonexistent", "")
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 type mockService struct {
@@ -32,8 +33,12 @@ func (m mockService) PackageManifests(ctx context.Context, identifier string, ve
 	return m.manifestResp, nil
 }
 
+func newTestHandler(svc WingetSrcService) http.Handler {
+	return NewWingetSrcHandler(svc, 60*time.Second)
+}
+
 func TestHandler_Health(t *testing.T) {
-	handler := NewWingetSrcHandler(mockService{})
+	handler := newTestHandler(mockService{})
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
@@ -50,7 +55,7 @@ func TestHandler_Information(t *testing.T) {
 			ServerSupportedVersions: []string{"1.4.0"},
 		},
 	}
-	handler := NewWingetSrcHandler(svc)
+	handler := newTestHandler(svc)
 	req := httptest.NewRequest(http.MethodGet, "/information", nil)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
@@ -67,7 +72,7 @@ func TestHandler_Information(t *testing.T) {
 
 func TestHandler_Information_ServiceError(t *testing.T) {
 	svc := mockService{err: fmt.Errorf("service error")}
-	handler := NewWingetSrcHandler(svc)
+	handler := newTestHandler(svc)
 	req := httptest.NewRequest(http.MethodGet, "/information", nil)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
@@ -83,7 +88,7 @@ func TestHandler_ManifestSearch_Success(t *testing.T) {
 			{PackageIdentifier: "owner/foo", PackageName: "foo", Publisher: "owner"},
 		},
 	}
-	handler := NewWingetSrcHandler(svc)
+	handler := newTestHandler(svc)
 
 	body, _ := json.Marshal(ManifestSearchRequest{Query: Query{Keyword: "foo"}})
 	req := httptest.NewRequest(http.MethodPost, "/manifestSearch", bytes.NewReader(body))
@@ -98,7 +103,7 @@ func TestHandler_ManifestSearch_Success(t *testing.T) {
 
 func TestHandler_ManifestSearch_BadRequest(t *testing.T) {
 	svc := mockService{}
-	handler := NewWingetSrcHandler(svc)
+	handler := newTestHandler(svc)
 
 	req := httptest.NewRequest(http.MethodPost, "/manifestSearch", bytes.NewReader([]byte("invalid json")))
 	req.Header.Set("Content-Type", "application/json")
@@ -112,7 +117,7 @@ func TestHandler_ManifestSearch_BadRequest(t *testing.T) {
 
 func TestHandler_ManifestSearch_ServiceError(t *testing.T) {
 	svc := mockService{err: fmt.Errorf("service error")}
-	handler := NewWingetSrcHandler(svc)
+	handler := newTestHandler(svc)
 
 	body, _ := json.Marshal(ManifestSearchRequest{Query: Query{Keyword: "foo"}})
 	req := httptest.NewRequest(http.MethodPost, "/manifestSearch", bytes.NewReader(body))
@@ -125,6 +130,25 @@ func TestHandler_ManifestSearch_ServiceError(t *testing.T) {
 	}
 }
 
+func TestHandler_ManifestSearch_BodyTooLarge(t *testing.T) {
+	svc := mockService{}
+	handler := newTestHandler(svc)
+
+	// 1MB超えのボディ
+	largeBody := make([]byte, (1<<20)+1)
+	for i := range largeBody {
+		largeBody[i] = 'a'
+	}
+	req := httptest.NewRequest(http.MethodPost, "/manifestSearch", bytes.NewReader(largeBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 for oversized body, got %d", w.Code)
+	}
+}
+
 func TestHandler_PackageManifests_Success(t *testing.T) {
 	svc := mockService{
 		manifestResp: PackageManifestsResponse{
@@ -134,9 +158,30 @@ func TestHandler_PackageManifests_Success(t *testing.T) {
 			},
 		},
 	}
-	handler := NewWingetSrcHandler(svc)
+	handler := newTestHandler(svc)
 
 	req := httptest.NewRequest(http.MethodGet, "/packageManifests/owner.foo", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+}
+
+func TestHandler_PackageManifests_WithVersion(t *testing.T) {
+	svc := mockService{
+		manifestResp: PackageManifestsResponse{
+			PackageIdentifier: "owner.foo",
+			Versions: []PackageManifestsVersion{
+				{PackageVersion: "1.0.0"},
+				{PackageVersion: "2.0.0"},
+			},
+		},
+	}
+	handler := newTestHandler(svc)
+
+	req := httptest.NewRequest(http.MethodGet, "/packageManifests/owner.foo?Version=1.0.0", nil)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 
@@ -149,7 +194,7 @@ func TestHandler_PackageManifests_NoContent(t *testing.T) {
 	svc := mockService{
 		manifestResp: PackageManifestsResponse{},
 	}
-	handler := NewWingetSrcHandler(svc)
+	handler := newTestHandler(svc)
 
 	req := httptest.NewRequest(http.MethodGet, "/packageManifests/nonexistent", nil)
 	w := httptest.NewRecorder()
@@ -162,7 +207,7 @@ func TestHandler_PackageManifests_NoContent(t *testing.T) {
 
 func TestHandler_PackageManifests_ServiceError(t *testing.T) {
 	svc := mockService{err: fmt.Errorf("service error")}
-	handler := NewWingetSrcHandler(svc)
+	handler := newTestHandler(svc)
 
 	req := httptest.NewRequest(http.MethodGet, "/packageManifests/owner.foo", nil)
 	w := httptest.NewRecorder()

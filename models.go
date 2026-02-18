@@ -86,7 +86,7 @@ type PackageManifests struct {
 type PackageManifestsResponse PackageManifests
 
 type DataResponse struct {
-	Data interface{}
+	Data any
 }
 
 type ErrorResponseEntry struct {

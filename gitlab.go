@@ -11,6 +11,7 @@ import (
 
 type Gitlab struct {
 	httpClient *http.Client
+	baseURL    string
 }
 
 type gitlabAssetLink struct {
@@ -30,7 +31,11 @@ type gitlabRelease struct {
 
 // FetchVersions implements PackageProvider.
 func (g Gitlab) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Version, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v4/projects/%d/releases", entry.Endpoint, entry.ProjectID), nil)
+	baseURL := g.baseURL
+	if baseURL == "" {
+		baseURL = entry.Endpoint
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v4/projects/%d/releases", baseURL, entry.ProjectID), nil)
 	if err != nil {
 		return nil, fmt.Errorf("gitlab releases API: %w", err)
 	}
@@ -45,7 +50,7 @@ func (g Gitlab) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Ve
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		contents, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 		return nil, fmt.Errorf("gitlab releases API status %d: %s", res.StatusCode, contents)
 	}
@@ -71,11 +76,11 @@ func (g Gitlab) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Ve
 
 	switch entry.InstallerType {
 	case InstallerTypeZipPortable:
-		return buildZipPortableVersions(g.httpClient, entry, releases)
+		return buildZipPortableVersions(ctx, g.httpClient, entry, releases)
 	case InstallerTypeMsi:
-		return buildInstallerVersions(g.httpClient, entry, releases, InstallerTypeMsi, ".msi")
+		return buildInstallerVersions(ctx, g.httpClient, entry, releases, InstallerTypeMsi, ".msi")
 	case InstallerTypeExe:
-		return buildInstallerVersions(g.httpClient, entry, releases, InstallerTypeExe, ".exe")
+		return buildInstallerVersions(ctx, g.httpClient, entry, releases, InstallerTypeExe, ".exe")
 	default:
 		return nil, fmt.Errorf("unknown installer type: %s", entry.InstallerType)
 	}

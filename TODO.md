@@ -66,3 +66,41 @@
 
 - [x] 全層に `context.Context` を導入し、キャンセル・タイムアウト制御を可能にする
 - [x] `gopkg.in/yaml.v2` → `v3` への移行
+
+## セキュリティ
+
+- [x] `handler.go:47` — `/manifestSearch` の `json.NewDecoder` にリクエストボディサイズ上限がない。大きなJSONペイロードでメモリ枯渇の可能性。`http.MaxBytesReader` で制限すべき
+- [x] `provider_common.go:135`, `github.go:49`, `gitlab.go:48` — HTTPステータスコードの比較がマジックナンバー `200`。`http.StatusOK` 定数に統一すべき
+
+## 設定の外部化
+
+- [x] `handler.go:27` — ミドルウェアタイムアウト `60 * time.Second` がハードコード。環境変数で設定可能にすべき
+- [x] `repository.go:174-175` — キャッシュTTL `5分` とクリーンアップ間隔 `10分` がハードコード。環境変数で設定可能にすべき
+- [x] `provider_common.go:13` — HTTPクライアントタイムアウト `30秒` がハードコード。環境変数で設定可能にすべき
+- [x] `service.go:26` — SourceIdentifier `"api.winget-src"` がハードコード。環境変数で設定可能にすべき
+
+## パフォーマンス
+
+- [x] `repository.go:114` — `QueryPackageManifests` がパッケージリストを線形探索している。`map[string]PackageListEntry` によるO(1)ルックアップに改善すべき
+- [x] `repository.go:80-107` — `QueryManifest` で条件に一致する各パッケージに対して個別に `fetchVersionsCached` を呼んでいる（N+1パターン）。初回検索時のレイテンシが大きい
+
+## コード品質（追加3）
+
+- [x] `repository.go:68` — `dispatchProvider` エラー時のメッセージが `"unknown package provider"` だが、`entry.Provider` の値を含めるべき（`fmt.Errorf("unknown package provider: %s", entry.Provider)`）
+- [x] `provider_common.go:147` — `fetchChecksums` のフォーマットエラーメッセージが `"checksum format error"` だけで、問題の行の内容が含まれていない。デバッグ困難
+- [x] `gitlab.go:12-13` — `Gitlab` 構造体に `baseURL` フィールドがない。テスト時にエンドポイントを `entry.Endpoint` で渡しているが、`Github` 構造体との一貫性がない
+- [x] `models.go:89` — `DataResponse.Data` の型が `interface{}` になっている。`any` に統一すべき（Go 1.18+）
+- [x] `handler.go:13-18` — エラーレスポンス生成のボイラープレートが各ハンドラで重複している。ヘルパー関数に抽出すべき
+
+## テスト（追加3）
+
+- [x] `repository_test.go` — `NewWingetSrcRepository` に不正なYAMLや空ファイルを渡した場合のエラーテストがない
+- [x] `handler_test.go` — `/packageManifests/{identifier}?Version=xxx` のクエリパラメータ付きテストがない
+- [x] `provider_common_test.go` — `collectChecksums` のテストがない（チェックサムアセットが複数ある場合のマージ動作）
+- [x] `provider_common.go` — `fetchChecksums` に `context.Context` が渡されていない。タイムアウト・キャンセルが効かない
+
+## 機能追加（追加2）
+
+- [x] Dockerfile の追加（コンテナデプロイ対応）
+- [x] `packages.yaml` のサンプルファイル追加（利用者向けのクイックスタート用）
+- [x] Graceful degradation — 一部プロバイダーのAPI呼び出しが失敗しても、成功したパッケージだけ返すオプション（現状は1件でもエラーなら全体失敗）

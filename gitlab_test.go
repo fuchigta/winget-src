@@ -34,10 +34,9 @@ func TestGitlab_FetchVersions_ZipPortable(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	g := Gitlab{httpClient: ts.Client()}
+	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
-		Endpoint:      ts.URL,
 		ProjectID:     42,
 		Name:          "myapp",
 		InstallerType: InstallerTypeZipPortable,
@@ -86,10 +85,9 @@ func TestGitlab_FetchVersions_Exe(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	g := Gitlab{httpClient: ts.Client()}
+	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
-		Endpoint:      ts.URL,
 		ProjectID:     42,
 		Name:          "myapp",
 		InstallerType: InstallerTypeExe,
@@ -116,10 +114,9 @@ func TestGitlab_FetchVersions_ErrorResponse(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	g := Gitlab{httpClient: ts.Client()}
+	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
-		Endpoint:      ts.URL,
 		ProjectID:     42,
 		Name:          "myapp",
 		InstallerType: InstallerTypeZipPortable,
@@ -141,10 +138,9 @@ func TestGitlab_FetchVersions_WithToken(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	g := Gitlab{httpClient: ts.Client()}
+	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
-		Endpoint:      ts.URL,
 		ProjectID:     42,
 		Name:          "myapp",
 		Token:         "mysecrettoken",
@@ -169,10 +165,9 @@ func TestGitlab_FetchVersions_UnknownInstallerType(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	g := Gitlab{httpClient: ts.Client()}
+	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
-		Endpoint:      ts.URL,
 		ProjectID:     42,
 		Name:          "myapp",
 		InstallerType: "unknown-type",
@@ -181,5 +176,29 @@ func TestGitlab_FetchVersions_UnknownInstallerType(t *testing.T) {
 	_, err := g.FetchVersions(context.Background(), entry)
 	if err == nil {
 		t.Fatal("expected error for unknown installer type")
+	}
+}
+
+func TestGitlab_FetchVersions_FallbackToEndpoint(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		releases := []gitlabRelease{}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(releases)
+	}))
+	defer ts.Close()
+
+	// baseURLを指定せず、entry.Endpointを使用
+	g := Gitlab{httpClient: ts.Client()}
+
+	entry := PackageListEntry{
+		Endpoint:      ts.URL,
+		ProjectID:     42,
+		Name:          "myapp",
+		InstallerType: InstallerTypeZipPortable,
+	}
+
+	_, err := g.FetchVersions(context.Background(), entry)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

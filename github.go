@@ -46,7 +46,7 @@ func (g Github) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Ve
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		contents, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 		return nil, fmt.Errorf("github releases API status %d: %s", res.StatusCode, contents)
 	}
@@ -72,11 +72,11 @@ func (g Github) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Ve
 
 	switch entry.InstallerType {
 	case InstallerTypeZipPortable:
-		return buildZipPortableVersions(g.httpClient, entry, releases)
+		return buildZipPortableVersions(ctx, g.httpClient, entry, releases)
 	case InstallerTypeMsi:
-		return buildInstallerVersions(g.httpClient, entry, releases, InstallerTypeMsi, ".msi")
+		return buildInstallerVersions(ctx, g.httpClient, entry, releases, InstallerTypeMsi, ".msi")
 	case InstallerTypeExe:
-		return buildInstallerVersions(g.httpClient, entry, releases, InstallerTypeExe, ".exe")
+		return buildInstallerVersions(ctx, g.httpClient, entry, releases, InstallerTypeExe, ".exe")
 	default:
 		return nil, fmt.Errorf("unknown installer type: %s", entry.InstallerType)
 	}

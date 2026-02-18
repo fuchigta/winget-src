@@ -2,16 +2,12 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
-	"time"
 )
-
-var defaultHTTPClient = &http.Client{
-	Timeout: 30 * time.Second,
-}
 
 type releaseAsset struct {
 	Name        string
@@ -35,11 +31,11 @@ func detectArch(lname string) (string, bool) {
 	return "", false
 }
 
-func collectChecksums(client *http.Client, assets []releaseAsset) (map[string]string, error) {
+func collectChecksums(ctx context.Context, client *http.Client, assets []releaseAsset) (map[string]string, error) {
 	checksums := map[string]string{}
 	for _, asset := range assets {
 		if asset.IsChecksum {
-			cs, err := fetchChecksums(client, asset.DownloadUrl)
+			cs, err := fetchChecksums(ctx, client, asset.DownloadUrl)
 			if err != nil {
 				return nil, err
 			}
@@ -51,10 +47,10 @@ func collectChecksums(client *http.Client, assets []releaseAsset) (map[string]st
 	return checksums, nil
 }
 
-func buildVersions(client *http.Client, releases []release, buildInstallers func(rel release, checksums map[string]string) []Installer) ([]Version, error) {
+func buildVersions(ctx context.Context, client *http.Client, releases []release, buildInstallers func(rel release, checksums map[string]string) []Installer) ([]Version, error) {
 	versions := []Version{}
 	for _, rel := range releases {
-		checksums, err := collectChecksums(client, rel.Assets)
+		checksums, err := collectChecksums(ctx, client, rel.Assets)
 		if err != nil {
 			return nil, err
 		}
@@ -70,8 +66,8 @@ func buildVersions(client *http.Client, releases []release, buildInstallers func
 	return versions, nil
 }
 
-func buildZipPortableVersions(client *http.Client, entry PackageListEntry, releases []release) ([]Version, error) {
-	return buildVersions(client, releases, func(rel release, checksums map[string]string) []Installer {
+func buildZipPortableVersions(ctx context.Context, client *http.Client, entry PackageListEntry, releases []release) ([]Version, error) {
+	return buildVersions(ctx, client, releases, func(rel release, checksums map[string]string) []Installer {
 		installers := []Installer{}
 		for _, asset := range rel.Assets {
 			lname := strings.ToLower(asset.Name)
@@ -98,8 +94,8 @@ func buildZipPortableVersions(client *http.Client, entry PackageListEntry, relea
 	})
 }
 
-func buildInstallerVersions(client *http.Client, entry PackageListEntry, releases []release, installerType string, ext string) ([]Version, error) {
-	return buildVersions(client, releases, func(rel release, checksums map[string]string) []Installer {
+func buildInstallerVersions(ctx context.Context, client *http.Client, entry PackageListEntry, releases []release, installerType string, ext string) ([]Version, error) {
+	return buildVersions(ctx, client, releases, func(rel release, checksums map[string]string) []Installer {
 		installers := []Installer{}
 		for _, asset := range rel.Assets {
 			lname := strings.ToLower(asset.Name)
@@ -122,8 +118,12 @@ func buildInstallerVersions(client *http.Client, entry PackageListEntry, release
 	})
 }
 
-func fetchChecksums(client *http.Client, url string) (map[string]string, error) {
-	res, err := client.Get(url)
+func fetchChecksums(ctx context.Context, client *http.Client, url string) (map[string]string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("checksum request: %w", err)
+	}
+	res, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("checksum download: %w", err)
 	}
@@ -132,7 +132,7 @@ func fetchChecksums(client *http.Client, url string) (map[string]string, error) 
 	const maxChecksumSize = 1 << 20 // 1MB
 	body := io.LimitReader(res.Body, maxChecksumSize)
 
-	if res.StatusCode != 200 {
+	if res.StatusCode != http.StatusOK {
 		contents, _ := io.ReadAll(body)
 		return nil, fmt.Errorf("checksum download status %d: %s", res.StatusCode, contents)
 	}
@@ -144,7 +144,7 @@ func fetchChecksums(client *http.Client, url string) (map[string]string, error) 
 
 		fields := strings.Fields(line)
 		if len(fields) != 2 {
-			return nil, fmt.Errorf("checksum format error")
+			return nil, fmt.Errorf("checksum format error: %q", line)
 		}
 
 		checksums[fields[1]] = fields[0]

@@ -1,0 +1,40 @@
+# packages.yaml の設定例
+# PACKAGE_LIST=/path/to/packages.yaml として環境変数に指定して使用します
+
+# GitHub プロバイダーの例（zip-portable形式）
+- provider: github
+  id: cli/cli                    # GitHub の owner/repo 形式
+  name: GitHub CLI
+  publisher: GitHub
+  description: GitHub's official command line tool
+  token: ""                      # プライベートリポジトリの場合は GitHub PAT を設定
+  installer_type: zip-portable   # zip-portable / msi / exe
+
+# GitHub プロバイダーの例（MSI形式）
+- provider: github
+  id: microsoft/PowerToys
+  name: PowerToys
+  publisher: Microsoft
+  description: Windows system utilities to maximize productivity
+  token: ""
+  installer_type: msi
+
+# GitHub プロバイダーの例（EXE形式）
+- provider: github
+  id: JanDeDobbeleer/oh-my-posh
+  name: Oh My Posh
+  publisher: Jan De Dobbeleer
+  description: A prompt theme engine for any shell
+  token: ""
+  installer_type: exe
+
+# GitLab プロバイダーの例（zip-portable形式）
+- provider: gitlab
+  id: myorg/myapp               # GitLab のプロジェクトパス（参照用）
+  name: MyApp
+  publisher: MyOrg
+  description: My application
+  endpoint: https://gitlab.com  # GitLab インスタンスの URL（セルフホストの場合は変更）
+  project_id: 12345678          # GitLab プロジェクトID（数値）
+  token: ""                     # プライベートプロジェクトの場合は PRIVATE-TOKEN を設定
+  installer_type: zip-portable
