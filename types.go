@@ -1,5 +1,13 @@
 package main
 
+import "context"
+
+const (
+	InstallerTypeZipPortable = "zip-portable"
+	InstallerTypeMsi         = "msi"
+	InstallerTypeExe         = "exe"
+)
+
 type PackageListEntry struct {
 	Provider      string `yaml:"provider"`
 	Id            string `yaml:"id"`
@@ -18,5 +26,5 @@ type Version struct {
 }
 
 type PackageProvider interface {
-	FetchVersions(PackageListEntry) ([]Version, error)
+	FetchVersions(ctx context.Context, entry PackageListEntry) ([]Version, error)
 }

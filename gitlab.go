@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 )
 
 type Gitlab struct {
+	httpClient *http.Client
 }
 
 type gitlabAssetLink struct {
@@ -27,8 +29,8 @@ type gitlabRelease struct {
 }
 
 // FetchVersions implements PackageProvider.
-func (g Gitlab) FetchVersions(entry PackageListEntry) ([]Version, error) {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/v4/projects/%d/releases", entry.Endpoint, entry.ProjectID), nil)
+func (g Gitlab) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Version, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v4/projects/%d/releases", entry.Endpoint, entry.ProjectID), nil)
 	if err != nil {
 		return nil, fmt.Errorf("gitlab releases API: %w", err)
 	}
@@ -37,14 +39,14 @@ func (g Gitlab) FetchVersions(entry PackageListEntry) ([]Version, error) {
 		req.Header.Add("PRIVATE-TOKEN", entry.Token)
 	}
 
-	res, err := httpClient.Do(req)
+	res, err := g.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("gitlab releases API: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
-		contents, _ := io.ReadAll(res.Body)
+		contents, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 		return nil, fmt.Errorf("gitlab releases API status %d: %s", res.StatusCode, contents)
 	}
 
@@ -68,12 +70,12 @@ func (g Gitlab) FetchVersions(entry PackageListEntry) ([]Version, error) {
 	}
 
 	switch entry.InstallerType {
-	case "zip-portable":
-		return buildZipPortableVersions(entry, releases)
-	case "msi":
-		return buildInstallerVersions(entry, releases, "msi", ".msi")
-	case "exe":
-		return buildInstallerVersions(entry, releases, "exe", ".exe")
+	case InstallerTypeZipPortable:
+		return buildZipPortableVersions(g.httpClient, entry, releases)
+	case InstallerTypeMsi:
+		return buildInstallerVersions(g.httpClient, entry, releases, InstallerTypeMsi, ".msi")
+	case InstallerTypeExe:
+		return buildInstallerVersions(g.httpClient, entry, releases, InstallerTypeExe, ".exe")
 	default:
 		return nil, fmt.Errorf("unknown installer type: %s", entry.InstallerType)
 	}

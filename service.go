@@ -1,11 +1,14 @@
 package main
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 type WingetSrcService interface {
-	Information() (InformationResponse, error)
-	ManifestSearch(req ManifestSearchRequest) (ManifestSearchResponse, error)
-	PackageManifests(identifier string, version string) (PackageManifestsResponse, error)
+	Information(ctx context.Context) (InformationResponse, error)
+	ManifestSearch(ctx context.Context, req ManifestSearchRequest) (ManifestSearchResponse, error)
+	PackageManifests(ctx context.Context, identifier string, version string) (PackageManifestsResponse, error)
 }
 
 type WingetSrcServiceImpl struct {
@@ -18,7 +21,7 @@ func NewWingetSrcService(repository WingetSrcRepository) WingetSrcService {
 	}
 }
 
-func (w WingetSrcServiceImpl) Information() (InformationResponse, error) {
+func (w WingetSrcServiceImpl) Information(ctx context.Context) (InformationResponse, error) {
 	return InformationResponse{
 		SourceIdentifier: "api.winget-src",
 		ServerSupportedVersions: []string{
@@ -27,7 +30,7 @@ func (w WingetSrcServiceImpl) Information() (InformationResponse, error) {
 		},
 	}, nil
 }
-func (w WingetSrcServiceImpl) ManifestSearch(req ManifestSearchRequest) (ManifestSearchResponse, error) {
+func (w WingetSrcServiceImpl) ManifestSearch(ctx context.Context, req ManifestSearchRequest) (ManifestSearchResponse, error) {
 	conditions := []QueryManifestCondition{}
 
 	if req.Query.Keyword != "" {
@@ -64,7 +67,7 @@ func (w WingetSrcServiceImpl) ManifestSearch(req ManifestSearchRequest) (Manifes
 		conditions = append(conditions, And(andConds...))
 	}
 
-	manifests, err := w.repository.QueryManifest(And(conditions...))
+	manifests, err := w.repository.QueryManifest(ctx, And(conditions...))
 	if err != nil {
 		return ManifestSearchResponse{}, err
 	}
@@ -72,8 +75,8 @@ func (w WingetSrcServiceImpl) ManifestSearch(req ManifestSearchRequest) (Manifes
 	return manifests, nil
 }
 
-func (w WingetSrcServiceImpl) PackageManifests(identifier string, version string) (PackageManifestsResponse, error) {
-	res, err := w.repository.QueryPackageManifests(identifier)
+func (w WingetSrcServiceImpl) PackageManifests(ctx context.Context, identifier string, version string) (PackageManifestsResponse, error) {
+	res, err := w.repository.QueryPackageManifests(ctx, identifier)
 	if err != nil {
 		return PackageManifestsResponse{}, err
 	}
@@ -87,7 +90,6 @@ func (w WingetSrcServiceImpl) PackageManifests(identifier string, version string
 		for _, v := range res.Versions {
 			if v.PackageVersion == version {
 				found = append(found, v)
-				break
 			}
 		}
 

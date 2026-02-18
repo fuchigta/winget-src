@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +10,8 @@ import (
 )
 
 type Github struct {
+	httpClient *http.Client
+	baseURL    string
 }
 
 type githubAsset struct {
@@ -23,8 +26,12 @@ type githubRelease struct {
 }
 
 // FetchVersions implements PackageProvider.
-func (g Github) FetchVersions(entry PackageListEntry) ([]Version, error) {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://api.github.com/repos/%s/releases", entry.Id), nil)
+func (g Github) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Version, error) {
+	baseURL := g.baseURL
+	if baseURL == "" {
+		baseURL = "https://api.github.com"
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/repos/%s/releases", baseURL, entry.Id), nil)
 	if err != nil {
 		return nil, fmt.Errorf("github releases API: %w", err)
 	}
@@ -33,14 +40,14 @@ func (g Github) FetchVersions(entry PackageListEntry) ([]Version, error) {
 		req.Header.Add("Authorization", fmt.Sprintf("token %s", entry.Token))
 	}
 
-	res, err := httpClient.Do(req)
+	res, err := g.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("github releases API: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
-		contents, _ := io.ReadAll(res.Body)
+		contents, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 		return nil, fmt.Errorf("github releases API status %d: %s", res.StatusCode, contents)
 	}
 
@@ -64,12 +71,12 @@ func (g Github) FetchVersions(entry PackageListEntry) ([]Version, error) {
 	}
 
 	switch entry.InstallerType {
-	case "zip-portable":
-		return buildZipPortableVersions(entry, releases)
-	case "msi":
-		return buildInstallerVersions(entry, releases, "msi", ".msi")
-	case "exe":
-		return buildInstallerVersions(entry, releases, "exe", ".exe")
+	case InstallerTypeZipPortable:
+		return buildZipPortableVersions(g.httpClient, entry, releases)
+	case InstallerTypeMsi:
+		return buildInstallerVersions(g.httpClient, entry, releases, InstallerTypeMsi, ".msi")
+	case InstallerTypeExe:
+		return buildInstallerVersions(g.httpClient, entry, releases, InstallerTypeExe, ".exe")
 	default:
 		return nil, fmt.Errorf("unknown installer type: %s", entry.InstallerType)
 	}

@@ -28,7 +28,10 @@ func run() int {
 		return exitErr
 	}
 
-	repository, err := NewWingetSrcRepository(packageListPath)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	repository, err := NewWingetSrcRepository(ctx, packageListPath)
 	if err != nil {
 		slog.Error(err.Error())
 		return exitErr
@@ -40,17 +43,16 @@ func run() int {
 		Addr:              ":" + port,
 		Handler:           handler,
 		ReadHeaderTimeout: 30 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-
-	defer stop()
 
 	go func() {
 		slog.Info("start server listen")
 
-		if err := srv.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
-			slog.Info(err.Error())
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error(err.Error())
 		}
 	}()
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -21,6 +22,30 @@ func NewCache[T any](ttl time.Duration) *Cache[T] {
 		entries: make(map[string]cacheEntry[T]),
 		ttl:     ttl,
 	}
+}
+
+// StartCleanup starts a background goroutine that periodically removes expired entries.
+// It stops when ctx is done.
+func (c *Cache[T]) StartCleanup(ctx context.Context, interval time.Duration) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				now := time.Now()
+				c.mu.Lock()
+				for k, e := range c.entries {
+					if now.After(e.expiresAt) {
+						delete(c.entries, k)
+					}
+				}
+				c.mu.Unlock()
+			}
+		}
+	}()
 }
 
 func (c *Cache[T]) Get(key string) (T, bool) {

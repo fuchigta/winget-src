@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"testing"
 )
@@ -11,7 +12,7 @@ type mockRepository struct {
 	err             error
 }
 
-func (m mockRepository) QueryManifest(condition QueryManifestCondition) ([]Manifest, error) {
+func (m mockRepository) QueryManifest(ctx context.Context, condition QueryManifestCondition) ([]Manifest, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -28,7 +29,7 @@ func (m mockRepository) QueryManifest(condition QueryManifestCondition) ([]Manif
 	return result, nil
 }
 
-func (m mockRepository) QueryPackageManifests(identifier string) (PackageManifests, error) {
+func (m mockRepository) QueryPackageManifests(ctx context.Context, identifier string) (PackageManifests, error) {
 	if m.err != nil {
 		return PackageManifests{}, m.err
 	}
@@ -40,7 +41,7 @@ func (m mockRepository) QueryPackageManifests(identifier string) (PackageManifes
 
 func TestInformation(t *testing.T) {
 	svc := NewWingetSrcService(mockRepository{})
-	info, err := svc.Information()
+	info, err := svc.Information(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -61,7 +62,7 @@ func TestManifestSearch_ByKeyword(t *testing.T) {
 	}
 	svc := NewWingetSrcService(repo)
 
-	res, err := svc.ManifestSearch(ManifestSearchRequest{
+	res, err := svc.ManifestSearch(context.Background(), ManifestSearchRequest{
 		Query: Query{Keyword: "foo"},
 	})
 	if err != nil {
@@ -84,7 +85,7 @@ func TestManifestSearch_ByFilter(t *testing.T) {
 	}
 	svc := NewWingetSrcService(repo)
 
-	res, err := svc.ManifestSearch(ManifestSearchRequest{
+	res, err := svc.ManifestSearch(context.Background(), ManifestSearchRequest{
 		Filters: []FieldQuery{
 			{PackageMatchField: PackageMatchFieldPackageIdentifier, RequestMatch: Query{Keyword: "owner/bar"}},
 		},
@@ -109,7 +110,7 @@ func TestManifestSearch_ByInclusion(t *testing.T) {
 	}
 	svc := NewWingetSrcService(repo)
 
-	res, err := svc.ManifestSearch(ManifestSearchRequest{
+	res, err := svc.ManifestSearch(context.Background(), ManifestSearchRequest{
 		Inclusions: []FieldQuery{
 			{PackageMatchField: PackageMatchFieldPackageName, RequestMatch: Query{Keyword: "bar"}},
 		},
@@ -129,7 +130,7 @@ func TestManifestSearch_RepositoryError(t *testing.T) {
 	repo := mockRepository{err: fmt.Errorf("repository error")}
 	svc := NewWingetSrcService(repo)
 
-	_, err := svc.ManifestSearch(ManifestSearchRequest{Query: Query{Keyword: "foo"}})
+	_, err := svc.ManifestSearch(context.Background(), ManifestSearchRequest{Query: Query{Keyword: "foo"}})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -147,7 +148,7 @@ func TestPackageManifests_Found(t *testing.T) {
 	}
 	svc := NewWingetSrcService(repo)
 
-	res, err := svc.PackageManifests("owner/foo", "")
+	res, err := svc.PackageManifests(context.Background(), "owner/foo", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -168,7 +169,7 @@ func TestPackageManifests_WithVersion(t *testing.T) {
 	}
 	svc := NewWingetSrcService(repo)
 
-	res, err := svc.PackageManifests("owner/foo", "2.0.0")
+	res, err := svc.PackageManifests(context.Background(), "owner/foo", "2.0.0")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -191,7 +192,7 @@ func TestPackageManifests_VersionNotFound(t *testing.T) {
 	}
 	svc := NewWingetSrcService(repo)
 
-	_, err := svc.PackageManifests("owner/foo", "9.9.9")
+	_, err := svc.PackageManifests(context.Background(), "owner/foo", "9.9.9")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -201,7 +202,7 @@ func TestPackageManifests_NotFound(t *testing.T) {
 	repo := mockRepository{}
 	svc := NewWingetSrcService(repo)
 
-	res, err := svc.PackageManifests("nonexistent", "")
+	res, err := svc.PackageManifests(context.Background(), "nonexistent", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

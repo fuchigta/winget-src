@@ -41,3 +41,28 @@
 
 - [x] `cache.go` のユニットテスト追加（TTL期限切れ、Get/Set、並行アクセス）
 - [x] `provider_common.go` のユニットテスト追加（`detectArch`, `buildZipPortableVersions`, `buildInstallerVersions`）
+
+## バグ・不具合（追加2）
+
+- [x] `service.go:85` — バージョンフィルタリングの `break` が不要。意図が不明確なので削除する
+- [x] `repository.go:114` — `QueryPackageManifests` の identifier 比較が `==` で大文字小文字を区別している。`strings.EqualFold` に統一すべき
+- [x] `main.go:52-54` — `ListenAndServe` のエラーハンドリングが不正。`ErrServerClosed` 以外のエラー（ポート競合等）が無視される
+- [x] `provider_common.go:27-35` — `detectArch` が `amd64`, `aarch64` に未対応
+
+## コード品質（追加2）
+
+- [x] `main.go:39-43` — HTTPサーバーに `ReadTimeout`, `WriteTimeout`, `IdleTimeout` が未設定
+- [x] `github.go:43`, `gitlab.go:47` — APIエラーレスポンスの `io.ReadAll` にサイズ上限がない（`io.LimitReader` を適用すべき）
+- [x] `types.go` — `InstallerType` の有効値（`zip-portable`, `msi`, `exe`）が定数定義されていない。switch 文にハードコードされている
+- [x] `provider_common.go` — `buildZipPortableVersions` と `buildInstallerVersions` の共通ロジックを抽出して重複を削減する
+- [x] `cache.go` — TTL期限切れエントリがマップに残り続けメモリリークする。定期削除の仕組みを追加する
+- [x] `provider_common.go:12-14` — `httpClient` がグローバル変数でテスト時のモック化が困難。プロバイダー構造体のフィールドに注入する
+
+## テスト（追加2）
+
+- [x] `github.go`, `gitlab.go` のユニットテスト追加（`httptest` モックサーバーによるプロバイダー層テスト）
+
+## 機能追加（追加）
+
+- [x] 全層に `context.Context` を導入し、キャンセル・タイムアウト制御を可能にする
+- [x] `gopkg.in/yaml.v2` → `v3` への移行
