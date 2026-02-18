@@ -40,7 +40,7 @@ func (g Github) FetchVersions(entry PackageListEntry) ([]Version, error) {
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
-		contents, _ := io.ReadAll(res.Body)
+		contents, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 		return nil, fmt.Errorf("github releases API status %d: %s", res.StatusCode, contents)
 	}
 
