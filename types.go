@@ -1,5 +1,11 @@
 package main
 
+const (
+	InstallerTypeZipPortable = "zip-portable"
+	InstallerTypeMsi         = "msi"
+	InstallerTypeExe         = "exe"
+)
+
 type PackageListEntry struct {
 	Provider      string `yaml:"provider"`
 	Id            string `yaml:"id"`

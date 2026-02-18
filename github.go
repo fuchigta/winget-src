@@ -64,12 +64,12 @@ func (g Github) FetchVersions(entry PackageListEntry) ([]Version, error) {
 	}
 
 	switch entry.InstallerType {
-	case "zip-portable":
+	case InstallerTypeZipPortable:
 		return buildZipPortableVersions(entry, releases)
-	case "msi":
-		return buildInstallerVersions(entry, releases, "msi", ".msi")
-	case "exe":
-		return buildInstallerVersions(entry, releases, "exe", ".exe")
+	case InstallerTypeMsi:
+		return buildInstallerVersions(entry, releases, InstallerTypeMsi, ".msi")
+	case InstallerTypeExe:
+		return buildInstallerVersions(entry, releases, InstallerTypeExe, ".exe")
 	default:
 		return nil, fmt.Errorf("unknown installer type: %s", entry.InstallerType)
 	}
