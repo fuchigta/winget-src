@@ -36,6 +36,19 @@ func (w WingetSrcServiceImpl) Information(ctx context.Context) (InformationRespo
 		},
 	}, nil
 }
+func fieldQueryToConditions(queries []FieldQuery) []QueryManifestCondition {
+	conds := []QueryManifestCondition{}
+	for _, q := range queries {
+		switch q.PackageMatchField {
+		case PackageMatchFieldPackageIdentifier, PackageMatchFieldProductCode:
+			conds = append(conds, ById(q.RequestMatch.KeyWord))
+		case PackageMatchFieldPackageName, PackageMatchFieldPackageFamilyName:
+			conds = append(conds, ByName(q.RequestMatch.KeyWord))
+		}
+	}
+	return conds
+}
+
 func (w WingetSrcServiceImpl) ManifestSearch(ctx context.Context, req ManifestSearchRequest) (ManifestSearchResponse, error) {
 	conditions := []QueryManifestCondition{}
 
@@ -44,33 +57,11 @@ func (w WingetSrcServiceImpl) ManifestSearch(ctx context.Context, req ManifestSe
 	}
 
 	if len(req.Inclusions) != 0 {
-		orConds := []QueryManifestCondition{}
-
-		for _, inclusion := range req.Inclusions {
-			switch inclusion.PackageMatchField {
-			case PackageMatchFieldPackageIdentifier, PackageMatchFieldProductCode:
-				orConds = append(orConds, ById(inclusion.RequestMatch.KeyWord))
-			case PackageMatchFieldPackageName, PackageMatchFieldPackageFamilyName:
-				orConds = append(orConds, ByName(inclusion.RequestMatch.KeyWord))
-			}
-		}
-
-		conditions = append(conditions, Or(orConds...))
+		conditions = append(conditions, Or(fieldQueryToConditions(req.Inclusions)...))
 	}
 
 	if len(req.Filters) != 0 {
-		andConds := []QueryManifestCondition{}
-
-		for _, filter := range req.Filters {
-			switch filter.PackageMatchField {
-			case PackageMatchFieldPackageIdentifier, PackageMatchFieldProductCode:
-				andConds = append(andConds, ById(filter.RequestMatch.KeyWord))
-			case PackageMatchFieldPackageName, PackageMatchFieldPackageFamilyName:
-				andConds = append(andConds, ByName(filter.RequestMatch.KeyWord))
-			}
-		}
-
-		conditions = append(conditions, And(andConds...))
+		conditions = append(conditions, And(fieldQueryToConditions(req.Filters)...))
 	}
 
 	manifests, err := w.repository.QueryManifest(ctx, And(conditions...))
