@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"strings"
 )
 
 const (
@@ -24,6 +25,13 @@ type PackageListEntry struct {
 	Token          string `yaml:"token"`
 	TokenEnv       string `yaml:"token_env"`
 	InstallerType  string `yaml:"installer_type"`
+}
+
+// PackageIdentifier returns the WinGet-compatible package identifier
+// by replacing slashes with dots in the Id field.
+// e.g. "owner/repo" → "owner.repo"
+func (e PackageListEntry) PackageIdentifier() string {
+	return strings.ReplaceAll(e.Id, "/", ".")
 }
 
 // GetToken returns the token for this entry. Token takes precedence over TokenEnv.

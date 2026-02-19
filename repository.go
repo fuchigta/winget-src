@@ -160,7 +160,7 @@ func (w WingetSrcRepositoryImpl) QueryManifest(ctx context.Context, condition Qu
 			results[i] = result{
 				index: i,
 				manifest: Manifest{
-					PackageIdentifier: entry.Id,
+					PackageIdentifier: entry.PackageIdentifier(),
 					PackageName:       entry.Name,
 					Publisher:         entry.Publisher,
 					Versions:          manifestVersions,
@@ -214,7 +214,7 @@ func (w WingetSrcRepositoryImpl) QueryPackageManifests(ctx context.Context, iden
 	}
 
 	return PackageManifests{
-		PackageIdentifier: found.Id,
+		PackageIdentifier: found.PackageIdentifier(),
 		Versions:          pkgManifestVersions,
 	}, nil
 }
@@ -244,7 +244,7 @@ func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTT
 
 	packageMap := make(map[string]PackageListEntry, len(packageList))
 	for _, entry := range packageList {
-		packageMap[strings.ToLower(entry.Id)] = entry
+		packageMap[strings.ToLower(entry.PackageIdentifier())] = entry
 	}
 
 	cache := NewCache[[]Version](cacheTTL, cacheMaxEntries)

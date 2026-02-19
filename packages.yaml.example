@@ -1,5 +1,11 @@
 # packages.yaml の設定例
 # PACKAGE_LIST=/path/to/packages.yaml として環境変数に指定して使用します
+#
+# 【id フィールドについて】
+# id は GitHub/GitLab の owner/repo 形式で指定します。
+# WinGet に返す PackageIdentifier は id の "/" を "." に自動変換した値になります。
+# 例: id: fuchigta/cc-launcher → PackageIdentifier: fuchigta.cc-launcher
+# winget search や winget install では変換後のドット形式の identifier を使用してください。
 
 # GitHub プロバイダーの例（MSI形式）— アセット名に "windows" を含まないケース
 # cc-launcher のアセット名は `cc-launcher_<VERSION>_x64_ja-JP.msi` 形式のため、
@@ -15,7 +21,7 @@
 
 # GitHub プロバイダーの例（zip-portable形式）
 #- provider: github
-#  id: cli/cli                    # GitHub の owner/repo 形式
+#  id: cli/cli                    # GitHub の owner/repo 形式 → WinGet identifier: cli.cli
 #  name: GitHub CLI
 #  publisher: GitHub
 #  description: GitHub's official command line tool
@@ -42,7 +48,7 @@
 
 # GitLab プロバイダーの例（zip-portable形式）
 #- provider: gitlab
-#  id: myorg/myapp               # GitLab のプロジェクトパス（参照用）
+#  id: myorg/myapp               # GitLab のプロジェクトパス → WinGet identifier: myorg.myapp
 #  name: MyApp
 #  publisher: MyOrg
 #  description: My application

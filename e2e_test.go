@@ -19,7 +19,7 @@ func newE2ERepo(t *testing.T, githubServer *httptest.Server, entries []PackageLi
 
 	packageMap := make(map[string]PackageListEntry, len(entries))
 	for _, e := range entries {
-		packageMap[strings.ToLower(e.Id)] = e
+		packageMap[strings.ToLower(e.PackageIdentifier())] = e
 	}
 
 	return WingetSrcRepositoryImpl{
@@ -57,7 +57,7 @@ func TestE2E_ManifestSearch_Then_PackageManifests(t *testing.T) {
 	}))
 	defer githubMock.Close()
 
-	// entry.Id は owner/repo 形式（GitHub API パスと WinGet identifier を兼ねる）
+	// entry.Id は GitHub の owner/repo 形式。WinGet の PackageIdentifier は / → . 変換される（owner.myapp）。
 	entry := PackageListEntry{
 		Provider:      "github",
 		Id:            "owner/myapp",
@@ -78,7 +78,7 @@ func TestE2E_ManifestSearch_Then_PackageManifests(t *testing.T) {
 	svc := NewWingetSrcService(repo, "api.winget-src")
 	handler := newE2EHandler(svc)
 
-	// Step 1: POST /manifestSearch
+	// Step 1: POST /manifestSearch → PackageIdentifier はドット形式（owner.myapp）になるはず
 	searchBody, _ := json.Marshal(ManifestSearchRequest{
 		Query: Query{KeyWord: "myapp"},
 	})
@@ -96,8 +96,22 @@ func TestE2E_ManifestSearch_Then_PackageManifests(t *testing.T) {
 		t.Fatalf("manifestSearch: decode response: %v", err)
 	}
 
-	// Step 2: GET /packageManifests/owner/myapp（スラッシュを含む identifier）
-	req2 := httptest.NewRequest(http.MethodGet, "/packageManifests/owner/myapp", nil)
+	// /manifestSearch レスポンスの PackageIdentifier がドット形式になっていることを検証
+	searchData, ok := searchResp.Data.([]interface{})
+	if !ok || len(searchData) == 0 {
+		t.Fatal("manifestSearch: expected non-empty Data")
+	}
+	firstPkg, ok := searchData[0].(map[string]interface{})
+	if !ok {
+		t.Fatal("manifestSearch: unexpected Data element type")
+	}
+	gotID, _ := firstPkg["PackageIdentifier"].(string)
+	if gotID != "owner.myapp" {
+		t.Errorf("manifestSearch: expected PackageIdentifier 'owner.myapp', got '%s'", gotID)
+	}
+
+	// Step 2: GET /packageManifests/owner.myapp（ドット形式 identifier で検索）
+	req2 := httptest.NewRequest(http.MethodGet, "/packageManifests/owner.myapp", nil)
 	w2 := httptest.NewRecorder()
 	handler.ServeHTTP(w2, req2)
 
