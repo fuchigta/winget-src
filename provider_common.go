@@ -67,12 +67,6 @@ func detectArch(lname string) (string, bool) {
 	return "", false
 }
 
-// hasArchKeyword はファイル名にアーキテクチャキーワードが含まれるか確認する
-func hasArchKeyword(lname string) bool {
-	_, ok := detectArch(lname)
-	return ok
-}
-
 func collectChecksums(ctx context.Context, client *http.Client, assets []releaseAsset) (map[string]string, error) {
 	checksums := map[string]string{}
 	for _, asset := range assets {
@@ -89,14 +83,48 @@ func collectChecksums(ctx context.Context, client *http.Client, assets []release
 	return checksums, nil
 }
 
-func buildVersions(ctx context.Context, client *http.Client, releases []release, buildInstallers func(rel release, checksums map[string]string) []Installer) ([]Version, error) {
+type installerConfig struct {
+	ext           string
+	installerType string
+	zipPortable   bool
+}
+
+func buildVersionsForConfig(ctx context.Context, client *http.Client, entry PackageListEntry, releases []release, cfg installerConfig) ([]Version, error) {
 	versions := []Version{}
 	for _, rel := range releases {
 		checksums, err := collectChecksums(ctx, client, rel.Assets)
 		if err != nil {
 			return nil, err
 		}
-		installers := buildInstallers(rel, checksums)
+		installers := []Installer{}
+		for _, asset := range rel.Assets {
+			lname := strings.ToLower(asset.Name)
+			arch, hasArch := detectArch(lname)
+			if !((strings.Contains(lname, "windows") || hasArch) && strings.HasSuffix(lname, cfg.ext)) {
+				continue
+			}
+			if !hasArch {
+				continue
+			}
+			inst := Installer{
+				Architecture:    arch,
+				InstallerType:   cfg.installerType,
+				InstallerUrl:    asset.DownloadUrl,
+				InstallerSha256: checksums[asset.Name],
+				Scope:           entry.GetScope(),
+			}
+			if cfg.zipPortable {
+				executableName := entry.ExecutableName
+				if executableName == "" {
+					executableName = fmt.Sprintf("%s.exe", entry.Name)
+				}
+				inst.NestedInstallerType = "portable"
+				inst.NestedInstallerFiles = []NestedInstallerFile{
+					{RelativeFilePath: executableName},
+				}
+			}
+			installers = append(installers, inst)
+		}
 		if len(installers) == 0 {
 			continue
 		}
@@ -108,71 +136,15 @@ func buildVersions(ctx context.Context, client *http.Client, releases []release,
 	return versions, nil
 }
 
-func buildZipPortableVersions(ctx context.Context, client *http.Client, entry PackageListEntry, releases []release) ([]Version, error) {
-	return buildVersions(ctx, client, releases, func(rel release, checksums map[string]string) []Installer {
-		installers := []Installer{}
-		for _, asset := range rel.Assets {
-			lname := strings.ToLower(asset.Name)
-			if !((strings.Contains(lname, "windows") || hasArchKeyword(lname)) && strings.HasSuffix(lname, ".zip")) {
-				continue
-			}
-			arch, ok := detectArch(lname)
-			if !ok {
-				continue
-			}
-			executableName := entry.ExecutableName
-			if executableName == "" {
-				executableName = fmt.Sprintf("%s.exe", entry.Name)
-			}
-			installers = append(installers, Installer{
-				Architecture:        arch,
-				InstallerType:       "zip",
-				InstallerUrl:        asset.DownloadUrl,
-				InstallerSha256:     checksums[asset.Name],
-				Scope:               entry.GetScope(),
-				NestedInstallerType: "portable",
-				NestedInstallerFiles: []NestedInstallerFile{
-					{RelativeFilePath: executableName},
-				},
-			})
-		}
-		return installers
-	})
-}
-
-func buildInstallerVersions(ctx context.Context, client *http.Client, entry PackageListEntry, releases []release, installerType string, ext string) ([]Version, error) {
-	return buildVersions(ctx, client, releases, func(rel release, checksums map[string]string) []Installer {
-		installers := []Installer{}
-		for _, asset := range rel.Assets {
-			lname := strings.ToLower(asset.Name)
-			if !((strings.Contains(lname, "windows") || hasArchKeyword(lname)) && strings.HasSuffix(lname, ext)) {
-				continue
-			}
-			arch, ok := detectArch(lname)
-			if !ok {
-				continue
-			}
-			installers = append(installers, Installer{
-				Architecture:    arch,
-				InstallerType:   installerType,
-				InstallerUrl:    asset.DownloadUrl,
-				InstallerSha256: checksums[asset.Name],
-				Scope:           entry.GetScope(),
-			})
-		}
-		return installers
-	})
-}
-
 // dispatchInstallerBuilder routes to the appropriate version builder based on installer type.
 func dispatchInstallerBuilder(ctx context.Context, client *http.Client, entry PackageListEntry, releases []release) ([]Version, error) {
 	switch entry.InstallerType {
 	case InstallerTypeZipPortable:
-		return buildZipPortableVersions(ctx, client, entry, releases)
+		return buildVersionsForConfig(ctx, client, entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true})
 	case InstallerTypeMsi:
-		return buildInstallerVersions(ctx, client, entry, releases, InstallerTypeMsi, ".msi")
+		return buildVersionsForConfig(ctx, client, entry, releases, installerConfig{ext: ".msi", installerType: InstallerTypeMsi})
 	case InstallerTypeExe:
-		return buildInstallerVersions(ctx, client, entry, releases, InstallerTypeExe, ".exe")
+		return buildVersionsForConfig(ctx, client, entry, releases, installerConfig{ext: ".exe", installerType: InstallerTypeExe})
 	default:
 		return nil, fmt.Errorf("unknown installer type: %s", entry.InstallerType)
 	}
