@@ -25,37 +25,28 @@ type githubRelease struct {
 	Assets []githubAsset `json:"assets"`
 }
 
-// FetchVersions implements PackageProvider.
-func (g Github) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Version, error) {
+func (g Github) providerName() string { return "github" }
+
+func (g Github) buildRequest(ctx context.Context, entry PackageListEntry) (*http.Request, error) {
 	baseURL := g.baseURL
 	if baseURL == "" {
 		baseURL = "https://api.github.com"
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/repos/%s/releases", baseURL, entry.Id), nil)
 	if err != nil {
-		return nil, fmt.Errorf("github releases API: %w", err)
+		return nil, err
 	}
-
 	if token := entry.GetToken(); token != "" {
 		req.Header.Add("Authorization", fmt.Sprintf("token %s", token))
 	}
+	return req, nil
+}
 
-	res, err := g.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("github releases API: %w", err)
+func (g Github) decodeReleases(body io.Reader) ([]release, error) {
+	var githubReleases []githubRelease
+	if err := json.NewDecoder(body).Decode(&githubReleases); err != nil {
+		return nil, err
 	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		contents, _ := io.ReadAll(io.LimitReader(res.Body, maxResponseBodySize))
-		return nil, fmt.Errorf("github releases API status %d: %s", res.StatusCode, contents)
-	}
-
-	githubReleases := []githubRelease{}
-	if err := json.NewDecoder(res.Body).Decode(&githubReleases); err != nil {
-		return nil, fmt.Errorf("github releases API response decode: %w", err)
-	}
-
 	releases := make([]release, len(githubReleases))
 	for i, gr := range githubReleases {
 		assets := make([]releaseAsset, len(gr.Assets))
@@ -71,8 +62,12 @@ func (g Github) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Ve
 		}
 		releases[i] = release{Name: gr.Name, Assets: assets}
 	}
+	return releases, nil
+}
 
-	return dispatchInstallerBuilder(ctx, g.httpClient, entry, releases)
+// FetchVersions implements PackageProvider.
+func (g Github) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Version, error) {
+	return fetchAndBuildVersions(ctx, g.httpClient, g, entry)
 }
 
 var _ PackageProvider = Github{}

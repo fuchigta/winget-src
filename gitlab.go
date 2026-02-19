@@ -29,37 +29,28 @@ type gitlabRelease struct {
 	Assets gitlabAssets `json:"assets"`
 }
 
-// FetchVersions implements PackageProvider.
-func (g Gitlab) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Version, error) {
+func (g Gitlab) providerName() string { return "gitlab" }
+
+func (g Gitlab) buildRequest(ctx context.Context, entry PackageListEntry) (*http.Request, error) {
 	baseURL := g.baseURL
 	if baseURL == "" {
 		baseURL = entry.Endpoint
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("%s/api/v4/projects/%d/releases", baseURL, entry.ProjectID), nil)
 	if err != nil {
-		return nil, fmt.Errorf("gitlab releases API: %w", err)
+		return nil, err
 	}
-
 	if token := entry.GetToken(); token != "" {
 		req.Header.Add("PRIVATE-TOKEN", token)
 	}
+	return req, nil
+}
 
-	res, err := g.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("gitlab releases API: %w", err)
+func (g Gitlab) decodeReleases(body io.Reader) ([]release, error) {
+	var gitlabReleases []gitlabRelease
+	if err := json.NewDecoder(body).Decode(&gitlabReleases); err != nil {
+		return nil, err
 	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		contents, _ := io.ReadAll(io.LimitReader(res.Body, maxResponseBodySize))
-		return nil, fmt.Errorf("gitlab releases API status %d: %s", res.StatusCode, contents)
-	}
-
-	gitlabReleases := []gitlabRelease{}
-	if err := json.NewDecoder(res.Body).Decode(&gitlabReleases); err != nil {
-		return nil, fmt.Errorf("gitlab releases API response decode: %w", err)
-	}
-
 	releases := make([]release, len(gitlabReleases))
 	for i, gr := range gitlabReleases {
 		assets := make([]releaseAsset, len(gr.Assets.Links))
@@ -73,8 +64,12 @@ func (g Gitlab) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Ve
 		}
 		releases[i] = release{Name: gr.Name, Assets: assets}
 	}
+	return releases, nil
+}
 
-	return dispatchInstallerBuilder(ctx, g.httpClient, entry, releases)
+// FetchVersions implements PackageProvider.
+func (g Gitlab) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Version, error) {
+	return fetchAndBuildVersions(ctx, g.httpClient, g, entry)
 }
 
 var _ PackageProvider = Gitlab{}

@@ -20,6 +20,42 @@ type release struct {
 	Assets []releaseAsset
 }
 
+// releaseAdapter abstracts the provider-specific parts of fetching releases.
+type releaseAdapter interface {
+	// buildRequest creates the HTTP request for fetching releases.
+	buildRequest(ctx context.Context, entry PackageListEntry) (*http.Request, error)
+	// decodeReleases decodes the response body into the common []release format.
+	decodeReleases(body io.Reader) ([]release, error)
+	// providerName returns the provider name for error messages.
+	providerName() string
+}
+
+// fetchAndBuildVersions implements the common fetch-decode-build pipeline.
+func fetchAndBuildVersions(ctx context.Context, client *http.Client, adapter releaseAdapter, entry PackageListEntry) ([]Version, error) {
+	req, err := adapter.buildRequest(ctx, entry)
+	if err != nil {
+		return nil, fmt.Errorf("%s releases API: %w", adapter.providerName(), err)
+	}
+
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%s releases API: %w", adapter.providerName(), err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		contents, _ := io.ReadAll(io.LimitReader(res.Body, maxResponseBodySize))
+		return nil, fmt.Errorf("%s releases API status %d: %s", adapter.providerName(), res.StatusCode, contents)
+	}
+
+	releases, err := adapter.decodeReleases(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("%s releases API response decode: %w", adapter.providerName(), err)
+	}
+
+	return dispatchInstallerBuilder(ctx, client, entry, releases)
+}
+
 func detectArch(lname string) (string, bool) {
 	if strings.Contains(lname, "x86_64") || strings.Contains(lname, "x64") || strings.Contains(lname, "amd64") {
 		return "x64", true
