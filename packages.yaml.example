@@ -18,6 +18,7 @@
   token: ""
   installer_type: msi
   license: MIT
+  locale: ja-JP
 
 # GitHub プロバイダーの例（zip-portable形式）
 #- provider: github
@@ -27,6 +28,8 @@
 #  description: GitHub's official command line tool
 #  token: ""                      # プライベートリポジトリの場合は GitHub PAT を設定
 #  installer_type: zip-portable   # zip-portable / msi / exe
+#  locale: en-US                  # パッケージのロケール（省略時: en-US）
+#  scope: user                    # インストールスコープ: user / machine（省略時: user）
 
 # GitHub プロバイダーの例（MSI形式）
 #- provider: github

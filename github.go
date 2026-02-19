@@ -47,7 +47,7 @@ func (g Github) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Ve
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		contents, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+		contents, _ := io.ReadAll(io.LimitReader(res.Body, maxResponseBodySize))
 		return nil, fmt.Errorf("github releases API status %d: %s", res.StatusCode, contents)
 	}
 
@@ -64,7 +64,9 @@ func (g Github) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Ve
 			assets[j] = releaseAsset{
 				Name:        a.Name,
 				DownloadUrl: a.BrowserDownloadUrl,
-				IsChecksum:  strings.Contains(lname, "checksum") && strings.Contains(a.ContentType, "text/plain"),
+				// GitHub はファイル名と content-type の両方を確認して false positive を低減する。
+				// GitLab のアセットリンクには content-type 情報がないためファイル名のみで判定する。
+				IsChecksum: strings.Contains(lname, "checksum") && strings.Contains(a.ContentType, "text/plain"),
 			}
 		}
 		releases[i] = release{Name: gr.Name, Assets: assets}

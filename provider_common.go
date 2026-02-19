@@ -93,7 +93,7 @@ func buildZipPortableVersions(ctx context.Context, client *http.Client, entry Pa
 				InstallerType:       "zip",
 				InstallerUrl:        asset.DownloadUrl,
 				InstallerSha256:     checksums[asset.Name],
-				Scope:               "user",
+				Scope:               entry.GetScope(),
 				NestedInstallerType: "portable",
 				NestedInstallerFiles: []NestedInstallerFile{
 					{RelativeFilePath: executableName},
@@ -121,7 +121,7 @@ func buildInstallerVersions(ctx context.Context, client *http.Client, entry Pack
 				InstallerType:   installerType,
 				InstallerUrl:    asset.DownloadUrl,
 				InstallerSha256: checksums[asset.Name],
-				Scope:           "user",
+				Scope:           entry.GetScope(),
 			})
 		}
 		return installers

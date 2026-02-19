@@ -205,7 +205,7 @@ func (w WingetSrcRepositoryImpl) QueryPackageManifests(ctx context.Context, iden
 			Installers:     version.Installers,
 			DefaultLocale: Locale{
 				PackageName:      found.Name,
-				PackageLocale:    "en-us",
+				PackageLocale:    found.GetLocale(),
 				Publisher:        found.Publisher,
 				License:          found.License,
 				ShortDescription: found.Description,

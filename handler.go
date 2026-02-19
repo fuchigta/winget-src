@@ -44,7 +44,7 @@ func NewWingetSrcHandler(service WingetSrcService, timeout time.Duration) http.H
 	})
 
 	r.Post("/manifestSearch", func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1MB limit
+		r.Body = http.MaxBytesReader(w, r.Body, maxResponseBodySize)
 		var req ManifestSearchRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, err)

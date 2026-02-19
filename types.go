@@ -10,6 +10,12 @@ const (
 	InstallerTypeZipPortable = "zip-portable"
 	InstallerTypeMsi         = "msi"
 	InstallerTypeExe         = "exe"
+
+	DefaultPackageLocale  = "en-US"
+	DefaultInstallerScope = "user"
+
+	// maxResponseBodySize is the maximum response body size to read (1 MB).
+	maxResponseBodySize = 1 << 20
 )
 
 type PackageListEntry struct {
@@ -25,6 +31,8 @@ type PackageListEntry struct {
 	Token          string `yaml:"token"`
 	TokenEnv       string `yaml:"token_env"`
 	InstallerType  string `yaml:"installer_type"`
+	Locale         string `yaml:"locale"`
+	Scope          string `yaml:"scope"`
 }
 
 // PackageIdentifier returns the WinGet-compatible package identifier
@@ -32,6 +40,22 @@ type PackageListEntry struct {
 // e.g. "owner/repo" → "owner.repo"
 func (e PackageListEntry) PackageIdentifier() string {
 	return strings.ReplaceAll(e.Id, "/", ".")
+}
+
+// GetLocale returns the configured locale, defaulting to "en-US".
+func (e PackageListEntry) GetLocale() string {
+	if e.Locale != "" {
+		return e.Locale
+	}
+	return DefaultPackageLocale
+}
+
+// GetScope returns the configured installer scope, defaulting to "user".
+func (e PackageListEntry) GetScope() string {
+	if e.Scope != "" {
+		return e.Scope
+	}
+	return DefaultInstallerScope
 }
 
 // GetToken returns the token for this entry. Token takes precedence over TokenEnv.

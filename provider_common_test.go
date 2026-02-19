@@ -258,6 +258,64 @@ func TestCollectChecksums_NoChecksumAssets(t *testing.T) {
 	}
 }
 
+func TestBuildZipPortableVersions_CustomScope(t *testing.T) {
+	entry := PackageListEntry{
+		Name:  "myapp",
+		Scope: "machine",
+	}
+
+	releases := []release{
+		{
+			Name: "v1.0.0",
+			Assets: []releaseAsset{
+				{Name: "myapp_windows_x64.zip", DownloadUrl: "https://example.com/myapp_windows_x64.zip"},
+			},
+		},
+	}
+
+	versions, err := buildZipPortableVersions(context.Background(), http.DefaultClient, entry, releases)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(versions) != 1 || len(versions[0].Installers) != 1 {
+		t.Fatalf("expected 1 version with 1 installer, got %d versions", len(versions))
+	}
+
+	if versions[0].Installers[0].Scope != "machine" {
+		t.Errorf("expected Scope 'machine', got '%s'", versions[0].Installers[0].Scope)
+	}
+}
+
+func TestBuildInstallerVersions_CustomScope(t *testing.T) {
+	entry := PackageListEntry{
+		Name:  "myapp",
+		Scope: "machine",
+	}
+
+	releases := []release{
+		{
+			Name: "v2.0.0",
+			Assets: []releaseAsset{
+				{Name: "myapp_windows_x64.msi", DownloadUrl: "https://example.com/myapp_windows_x64.msi"},
+			},
+		},
+	}
+
+	versions, err := buildInstallerVersions(context.Background(), http.DefaultClient, entry, releases, "msi", ".msi")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(versions) != 1 || len(versions[0].Installers) != 1 {
+		t.Fatalf("expected 1 version with 1 installer, got %d versions", len(versions))
+	}
+
+	if versions[0].Installers[0].Scope != "machine" {
+		t.Errorf("expected Scope 'machine', got '%s'", versions[0].Installers[0].Scope)
+	}
+}
+
 func TestCollectChecksums_FetchError(t *testing.T) {
 	assets := []releaseAsset{
 		{Name: "checksums.txt", DownloadUrl: "http://127.0.0.1:0/nonexistent", IsChecksum: true},

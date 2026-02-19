@@ -51,7 +51,7 @@ func (g Gitlab) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Ve
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		contents, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+		contents, _ := io.ReadAll(io.LimitReader(res.Body, maxResponseBodySize))
 		return nil, fmt.Errorf("gitlab releases API status %d: %s", res.StatusCode, contents)
 	}
 
