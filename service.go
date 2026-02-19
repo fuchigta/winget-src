@@ -100,7 +100,7 @@ func (w WingetSrcServiceImpl) PackageManifests(ctx context.Context, identifier s
 		}
 
 		if len(found) == 0 {
-			return PackageManifestsResponse{}, fmt.Errorf("%s not found", version)
+			return PackageManifestsResponse{}, fmt.Errorf("version %s not found for package %s", version, identifier)
 		}
 
 		res.Versions = found
