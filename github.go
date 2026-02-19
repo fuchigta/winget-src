@@ -72,16 +72,7 @@ func (g Github) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Ve
 		releases[i] = release{Name: gr.Name, Assets: assets}
 	}
 
-	switch entry.InstallerType {
-	case InstallerTypeZipPortable:
-		return buildZipPortableVersions(ctx, g.httpClient, entry, releases)
-	case InstallerTypeMsi:
-		return buildInstallerVersions(ctx, g.httpClient, entry, releases, InstallerTypeMsi, ".msi")
-	case InstallerTypeExe:
-		return buildInstallerVersions(ctx, g.httpClient, entry, releases, InstallerTypeExe, ".exe")
-	default:
-		return nil, fmt.Errorf("unknown installer type: %s", entry.InstallerType)
-	}
+	return dispatchInstallerBuilder(ctx, g.httpClient, entry, releases)
 }
 
 var _ PackageProvider = Github{}

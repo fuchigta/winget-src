@@ -128,6 +128,20 @@ func buildInstallerVersions(ctx context.Context, client *http.Client, entry Pack
 	})
 }
 
+// dispatchInstallerBuilder routes to the appropriate version builder based on installer type.
+func dispatchInstallerBuilder(ctx context.Context, client *http.Client, entry PackageListEntry, releases []release) ([]Version, error) {
+	switch entry.InstallerType {
+	case InstallerTypeZipPortable:
+		return buildZipPortableVersions(ctx, client, entry, releases)
+	case InstallerTypeMsi:
+		return buildInstallerVersions(ctx, client, entry, releases, InstallerTypeMsi, ".msi")
+	case InstallerTypeExe:
+		return buildInstallerVersions(ctx, client, entry, releases, InstallerTypeExe, ".exe")
+	default:
+		return nil, fmt.Errorf("unknown installer type: %s", entry.InstallerType)
+	}
+}
+
 func fetchChecksums(ctx context.Context, client *http.Client, url string) (map[string]string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
