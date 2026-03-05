@@ -35,6 +35,12 @@ func TestDetectArch(t *testing.T) {
 }
 
 func TestBuildZipPortableVersions(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "aaaa myapp_windows_x64.zip")
+		fmt.Fprintln(w, "bbbb myapp_windows_arm64.zip")
+	}))
+	defer ts.Close()
+
 	entry := PackageListEntry{
 		Name: "myapp",
 	}
@@ -43,6 +49,7 @@ func TestBuildZipPortableVersions(t *testing.T) {
 		{
 			Name: "v1.0.0",
 			Assets: []releaseAsset{
+				{Name: "checksums.txt", DownloadUrl: ts.URL, IsChecksum: true},
 				{Name: "myapp_windows_x64.zip", DownloadUrl: "https://example.com/myapp_windows_x64.zip"},
 				{Name: "myapp_windows_arm64.zip", DownloadUrl: "https://example.com/myapp_windows_arm64.zip"},
 				{Name: "myapp_linux_x64.tar.gz", DownloadUrl: "https://example.com/myapp_linux_x64.tar.gz"},
@@ -50,7 +57,7 @@ func TestBuildZipPortableVersions(t *testing.T) {
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), http.DefaultClient, entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true})
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -103,19 +110,26 @@ func TestBuildZipPortableVersions_NoMatch(t *testing.T) {
 }
 
 func TestBuildInstallerVersions_Msi(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "cccc myapp_windows_x64.msi")
+		fmt.Fprintln(w, "dddd myapp_windows_x86.msi")
+	}))
+	defer ts.Close()
+
 	entry := PackageListEntry{Name: "myapp"}
 
 	releases := []release{
 		{
 			Name: "v2.0.0",
 			Assets: []releaseAsset{
+				{Name: "checksums.txt", DownloadUrl: ts.URL, IsChecksum: true},
 				{Name: "myapp_windows_x64.msi", DownloadUrl: "https://example.com/myapp_windows_x64.msi"},
 				{Name: "myapp_windows_x86.msi", DownloadUrl: "https://example.com/myapp_windows_x86.msi"},
 			},
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), http.DefaultClient, entry, releases, installerConfig{ext: ".msi", installerType: "msi"})
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".msi", installerType: "msi"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -259,6 +273,11 @@ func TestCollectChecksums_NoChecksumAssets(t *testing.T) {
 }
 
 func TestBuildZipPortableVersions_CustomScope(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "aaaa myapp_windows_x64.zip")
+	}))
+	defer ts.Close()
+
 	entry := PackageListEntry{
 		Name:  "myapp",
 		Scope: "machine",
@@ -268,12 +287,13 @@ func TestBuildZipPortableVersions_CustomScope(t *testing.T) {
 		{
 			Name: "v1.0.0",
 			Assets: []releaseAsset{
+				{Name: "checksums.txt", DownloadUrl: ts.URL, IsChecksum: true},
 				{Name: "myapp_windows_x64.zip", DownloadUrl: "https://example.com/myapp_windows_x64.zip"},
 			},
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), http.DefaultClient, entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true})
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -288,6 +308,11 @@ func TestBuildZipPortableVersions_CustomScope(t *testing.T) {
 }
 
 func TestBuildInstallerVersions_CustomScope(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "cccc myapp_windows_x64.msi")
+	}))
+	defer ts.Close()
+
 	entry := PackageListEntry{
 		Name:  "myapp",
 		Scope: "machine",
@@ -297,12 +322,13 @@ func TestBuildInstallerVersions_CustomScope(t *testing.T) {
 		{
 			Name: "v2.0.0",
 			Assets: []releaseAsset{
+				{Name: "checksums.txt", DownloadUrl: ts.URL, IsChecksum: true},
 				{Name: "myapp_windows_x64.msi", DownloadUrl: "https://example.com/myapp_windows_x64.msi"},
 			},
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), http.DefaultClient, entry, releases, installerConfig{ext: ".msi", installerType: "msi"})
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".msi", installerType: "msi"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -313,6 +339,55 @@ func TestBuildInstallerVersions_CustomScope(t *testing.T) {
 
 	if versions[0].Installers[0].Scope != "machine" {
 		t.Errorf("expected Scope 'machine', got '%s'", versions[0].Installers[0].Scope)
+	}
+}
+
+func TestComputeSHA256FromURL(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("hello"))
+	}))
+	defer ts.Close()
+
+	hash, err := computeSHA256FromURL(context.Background(), ts.Client(), ts.URL)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(hash) != 64 {
+		t.Errorf("expected 64-char hex SHA256, got %d chars: %s", len(hash), hash)
+	}
+}
+
+func TestBuildVersions_FallbackSHA256(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("fake installer"))
+	}))
+	defer ts.Close()
+
+	entry := PackageListEntry{Name: "myapp"}
+	releases := []release{
+		{
+			Name: "v1.0.0",
+			Assets: []releaseAsset{
+				{Name: "myapp_windows_x64.msi", DownloadUrl: ts.URL + "/myapp_windows_x64.msi"},
+			},
+		},
+	}
+
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".msi", installerType: "msi"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(versions) != 1 || len(versions[0].Installers) != 1 {
+		t.Fatalf("expected 1 version with 1 installer")
+	}
+
+	sha := versions[0].Installers[0].InstallerSha256
+	if sha == "" {
+		t.Error("expected non-empty InstallerSha256 from fallback computation")
+	}
+	if len(sha) != 64 {
+		t.Errorf("expected 64-char SHA256, got %d chars: %s", len(sha), sha)
 	}
 }
 

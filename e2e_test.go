@@ -36,12 +36,22 @@ func newE2EHandler(svc WingetSrcService) http.Handler {
 }
 
 func TestE2E_ManifestSearch_Then_PackageManifests(t *testing.T) {
-	// GitHub API mock: returns a single release with a Windows x64 zip asset
+	// GitHub API mock: returns a single release with a Windows x64 zip asset and checksum
+	var mockURL string
 	githubMock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/checksums.txt" {
+			w.Write([]byte("aaaa myapp_windows_x64.zip\n"))
+			return
+		}
 		releases := []githubRelease{
 			{
 				Name: "v1.2.3",
 				Assets: []githubAsset{
+					{
+						Name:               "checksums.txt",
+						BrowserDownloadUrl: mockURL + "/checksums.txt",
+						ContentType:        "text/plain",
+					},
 					{
 						Name:               "myapp_windows_x64.zip",
 						BrowserDownloadUrl: "https://example.com/myapp_windows_x64.zip",
@@ -55,6 +65,7 @@ func TestE2E_ManifestSearch_Then_PackageManifests(t *testing.T) {
 			t.Errorf("mock: encode error: %v", err)
 		}
 	}))
+	mockURL = githubMock.URL
 	defer githubMock.Close()
 
 	// entry.Id は GitHub の owner/repo 形式。WinGet の PackageIdentifier は / → . 変換される（owner.myapp）。

@@ -9,13 +9,23 @@ import (
 )
 
 func TestGitlab_FetchVersions_ZipPortable(t *testing.T) {
+	var tsURL string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/checksums.txt" {
+			w.Write([]byte("aaaa myapp_windows_x64.zip\n"))
+			return
+		}
 		releases := []gitlabRelease{
 			{
 				Name:    "My App v1.0.0",
 				TagName: "v1.0.0",
 				Assets: gitlabAssets{
 					Links: []gitlabAssetLink{
+						{
+							Name:     "checksums.txt",
+							Url:      tsURL + "/checksums.txt",
+							LinkType: "other",
+						},
 						{
 							Name:     "myapp_windows_x64.zip",
 							Url:      "https://example.com/myapp_windows_x64.zip",
@@ -33,6 +43,7 @@ func TestGitlab_FetchVersions_ZipPortable(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(releases)
 	}))
+	tsURL = ts.URL
 	defer ts.Close()
 
 	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}
@@ -66,12 +77,22 @@ func TestGitlab_FetchVersions_ZipPortable(t *testing.T) {
 }
 
 func TestGitlab_FetchVersions_Exe(t *testing.T) {
+	var tsURL string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/checksums.txt" {
+			w.Write([]byte("eeee myapp_windows_x64.exe\n"))
+			return
+		}
 		releases := []gitlabRelease{
 			{
 				Name: "v3.0.0",
 				Assets: gitlabAssets{
 					Links: []gitlabAssetLink{
+						{
+							Name:     "checksums.txt",
+							Url:      tsURL + "/checksums.txt",
+							LinkType: "other",
+						},
 						{
 							Name:     "myapp_windows_x64.exe",
 							Url:      "https://example.com/myapp_windows_x64.exe",
@@ -84,6 +105,7 @@ func TestGitlab_FetchVersions_Exe(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(releases)
 	}))
+	tsURL = ts.URL
 	defer ts.Close()
 
 	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}

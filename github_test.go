@@ -9,12 +9,22 @@ import (
 )
 
 func TestGithub_FetchVersions_ZipPortable(t *testing.T) {
+	var tsURL string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/checksums.txt" {
+			w.Write([]byte("aaaa myapp_windows_x64.zip\n"))
+			return
+		}
 		releases := []githubRelease{
 			{
 				Name:    "My App v1.0.0",
 				TagName: "v1.0.0",
 				Assets: []githubAsset{
+					{
+						Name:               "checksums.txt",
+						BrowserDownloadUrl: tsURL + "/checksums.txt",
+						ContentType:        "text/plain",
+					},
 					{
 						Name:               "myapp_windows_x64.zip",
 						BrowserDownloadUrl: "https://example.com/myapp_windows_x64.zip",
@@ -31,6 +41,7 @@ func TestGithub_FetchVersions_ZipPortable(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(releases)
 	}))
+	tsURL = ts.URL
 	defer ts.Close()
 
 	g := Github{httpClient: ts.Client(), baseURL: ts.URL}
@@ -64,11 +75,21 @@ func TestGithub_FetchVersions_ZipPortable(t *testing.T) {
 }
 
 func TestGithub_FetchVersions_Msi(t *testing.T) {
+	var tsURL string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/checksums.txt" {
+			w.Write([]byte("cccc myapp_windows_x64.msi\ndddd myapp_windows_x86.msi\n"))
+			return
+		}
 		releases := []githubRelease{
 			{
 				Name: "v2.0.0",
 				Assets: []githubAsset{
+					{
+						Name:               "checksums.txt",
+						BrowserDownloadUrl: tsURL + "/checksums.txt",
+						ContentType:        "text/plain",
+					},
 					{
 						Name:               "myapp_windows_x64.msi",
 						BrowserDownloadUrl: "https://example.com/myapp_windows_x64.msi",
@@ -85,6 +106,7 @@ func TestGithub_FetchVersions_Msi(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(releases)
 	}))
+	tsURL = ts.URL
 	defer ts.Close()
 
 	g := Github{httpClient: ts.Client(), baseURL: ts.URL}

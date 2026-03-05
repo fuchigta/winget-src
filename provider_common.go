@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -110,11 +112,19 @@ func buildVersionsForConfig(ctx context.Context, client *http.Client, entry Pack
 			if !hasArch {
 				continue
 			}
+			sha256hex := checksums[asset.Name]
+			if sha256hex == "" {
+				computed, err := computeSHA256FromURL(ctx, client, asset.DownloadUrl)
+				if err != nil {
+					return nil, fmt.Errorf("computing sha256 for %s: %w", asset.Name, err)
+				}
+				sha256hex = computed
+			}
 			inst := Installer{
 				Architecture:    arch,
 				InstallerType:   cfg.installerType,
 				InstallerUrl:    asset.DownloadUrl,
-				InstallerSha256: checksums[asset.Name],
+				InstallerSha256: sha256hex,
 				Scope:           entry.GetScope(),
 			}
 			if cfg.zipPortable {
@@ -152,6 +162,29 @@ func dispatchInstallerBuilder(ctx context.Context, client *http.Client, entry Pa
 	default:
 		return nil, fmt.Errorf("unknown installer type: %s", entry.InstallerType)
 	}
+}
+
+// computeSHA256FromURL downloads the content at url and returns its SHA-256 hex digest.
+// Used as fallback when no checksum file is provided in the release assets.
+func computeSHA256FromURL(ctx context.Context, client *http.Client, url string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", fmt.Errorf("sha256 request: %w", err)
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("sha256 download: %w", err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(res.Body, maxResponseBodySize))
+		return "", fmt.Errorf("sha256 download status %d: %s", res.StatusCode, body)
+	}
+	h := sha256.New()
+	if _, err := io.Copy(h, res.Body); err != nil {
+		return "", fmt.Errorf("sha256 read: %w", err)
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func fetchChecksums(ctx context.Context, client *http.Client, url string) (map[string]string, error) {
