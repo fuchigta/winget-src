@@ -27,6 +27,7 @@ func newE2ERepo(t *testing.T, githubServer *httptest.Server, entries []PackageLi
 		packageMap:          packageMap,
 		versionCache:        cache,
 		httpClient:          githubServer.Client(),
+		downloadClient:      githubServer.Client(),
 		gracefulDegradation: false,
 	}
 }
@@ -80,7 +81,7 @@ func TestE2E_ManifestSearch_Then_PackageManifests(t *testing.T) {
 	repo := newE2ERepo(t, githubMock, []PackageListEntry{entry})
 
 	// Pre-populate cache using the mock GitHub server directly (bypasses dispatchProvider)
-	versions, err := Github{httpClient: githubMock.Client(), baseURL: githubMock.URL}.FetchVersions(context.Background(), entry)
+	versions, err := Github{httpClient: githubMock.Client(), downloadClient: githubMock.Client(), baseURL: githubMock.URL}.FetchVersions(context.Background(), entry)
 	if err != nil {
 		t.Fatalf("FetchVersions: %v", err)
 	}
@@ -210,7 +211,7 @@ func TestE2E_TokenEnv_UsedForAuth(t *testing.T) {
 		InstallerType: InstallerTypeZipPortable,
 	}
 
-	_, err := Github{httpClient: githubMock.Client(), baseURL: githubMock.URL}.FetchVersions(context.Background(), entry)
+	_, err := Github{httpClient: githubMock.Client(), downloadClient: githubMock.Client(), baseURL: githubMock.URL}.FetchVersions(context.Background(), entry)
 	if err != nil {
 		t.Fatalf("FetchVersions: %v", err)
 	}

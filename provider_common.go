@@ -33,13 +33,14 @@ type releaseAdapter interface {
 }
 
 // fetchAndBuildVersions implements the common fetch-decode-build pipeline.
-func fetchAndBuildVersions(ctx context.Context, client *http.Client, adapter releaseAdapter, entry PackageListEntry) ([]Version, error) {
+// apiClient is used for the releases API call; downloadClient is used for downloading assets (SHA256 computation).
+func fetchAndBuildVersions(ctx context.Context, apiClient *http.Client, downloadClient *http.Client, adapter releaseAdapter, entry PackageListEntry) ([]Version, error) {
 	req, err := adapter.buildRequest(ctx, entry)
 	if err != nil {
 		return nil, fmt.Errorf("%s releases API: %w", adapter.providerName(), err)
 	}
 
-	res, err := client.Do(req)
+	res, err := apiClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%s releases API: %w", adapter.providerName(), err)
 	}
@@ -55,7 +56,7 @@ func fetchAndBuildVersions(ctx context.Context, client *http.Client, adapter rel
 		return nil, fmt.Errorf("%s releases API response decode: %w", adapter.providerName(), err)
 	}
 
-	return dispatchInstallerBuilder(ctx, client, entry, releases)
+	return dispatchInstallerBuilder(ctx, downloadClient, entry, releases)
 }
 
 func normalizeVersion(tag string) string {

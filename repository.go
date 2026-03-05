@@ -25,6 +25,7 @@ type WingetSrcRepositoryImpl struct {
 	packageMap          map[string]PackageListEntry
 	versionCache        *Cache[[]Version]
 	httpClient          *http.Client
+	downloadClient      *http.Client
 	gracefulDegradation bool
 }
 
@@ -69,7 +70,7 @@ func (w WingetSrcRepositoryImpl) fetchVersionsCached(ctx context.Context, entry 
 		return cached, nil
 	}
 
-	provider, err := dispatchProvider(entry, w.httpClient)
+	provider, err := dispatchProvider(entry, w.httpClient, w.downloadClient)
 	if err != nil {
 		return nil, err
 	}
@@ -219,12 +220,12 @@ func (w WingetSrcRepositoryImpl) QueryPackageManifests(ctx context.Context, iden
 	}, nil
 }
 
-func dispatchProvider(entry PackageListEntry, httpClient *http.Client) (PackageProvider, error) {
+func dispatchProvider(entry PackageListEntry, httpClient *http.Client, downloadClient *http.Client) (PackageProvider, error) {
 	switch entry.Provider {
 	case "github":
-		return Github{httpClient: httpClient}, nil
+		return Github{httpClient: httpClient, downloadClient: downloadClient}, nil
 	case "gitlab":
-		return Gitlab{httpClient: httpClient}, nil
+		return Gitlab{httpClient: httpClient, downloadClient: downloadClient}, nil
 	default:
 		return nil, fmt.Errorf("unknown package provider: %s", entry.Provider)
 	}
@@ -251,12 +252,15 @@ func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTT
 	cache.StartCleanup(ctx, cacheCleanupInterval)
 
 	httpClient := &http.Client{Timeout: httpClientTimeout}
+	// downloadClient has no timeout; large asset downloads are bounded by the handler context timeout.
+	downloadClient := &http.Client{}
 
 	return WingetSrcRepositoryImpl{
 		packageList:         packageList,
 		packageMap:          packageMap,
 		versionCache:        cache,
 		httpClient:          httpClient,
+		downloadClient:      downloadClient,
 		gracefulDegradation: gracefulDegradation,
 	}, nil
 }

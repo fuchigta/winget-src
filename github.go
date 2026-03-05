@@ -10,8 +10,9 @@ import (
 )
 
 type Github struct {
-	httpClient *http.Client
-	baseURL    string
+	httpClient     *http.Client
+	downloadClient *http.Client
+	baseURL        string
 }
 
 type githubAsset struct {
@@ -68,7 +69,11 @@ func (g Github) decodeReleases(body io.Reader) ([]release, error) {
 
 // FetchVersions implements PackageProvider.
 func (g Github) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Version, error) {
-	return fetchAndBuildVersions(ctx, g.httpClient, g, entry)
+	dc := g.downloadClient
+	if dc == nil {
+		dc = g.httpClient
+	}
+	return fetchAndBuildVersions(ctx, g.httpClient, dc, g, entry)
 }
 
 var _ PackageProvider = Github{}
