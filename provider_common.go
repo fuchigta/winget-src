@@ -56,6 +56,10 @@ func fetchAndBuildVersions(ctx context.Context, client *http.Client, adapter rel
 	return dispatchInstallerBuilder(ctx, client, entry, releases)
 }
 
+func normalizeVersion(tag string) string {
+	return strings.TrimPrefix(tag, "v")
+}
+
 func detectArch(lname string) (string, bool) {
 	if strings.Contains(lname, "x86_64") || strings.Contains(lname, "x64") || strings.Contains(lname, "amd64") {
 		return "x64", true

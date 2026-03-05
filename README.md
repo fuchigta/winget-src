@@ -152,7 +152,7 @@ winget source add -n my-src -a https://<サーバーのホスト名> -t "Microso
 winget search "CC Launcher" --source my-src
 
 # パッケージインストール
-winget install --id fuchigta/cc-launcher --source my-src
+winget install --id fuchigta.cc-launcher --source my-src
 
 # ソースの削除
 winget source remove -n my-src

@@ -12,7 +12,8 @@ func TestGithub_FetchVersions_ZipPortable(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		releases := []githubRelease{
 			{
-				Name: "v1.0.0",
+				Name:    "My App v1.0.0",
+				TagName: "v1.0.0",
 				Assets: []githubAsset{
 					{
 						Name:               "myapp_windows_x64.zip",
@@ -49,8 +50,8 @@ func TestGithub_FetchVersions_ZipPortable(t *testing.T) {
 		t.Fatalf("expected 1 version, got %d", len(versions))
 	}
 
-	if versions[0].Version != "v1.0.0" {
-		t.Errorf("expected version 'v1.0.0', got '%s'", versions[0].Version)
+	if versions[0].Version != "1.0.0" {
+		t.Errorf("expected version '1.0.0', got '%s'", versions[0].Version)
 	}
 
 	if len(versions[0].Installers) != 1 {

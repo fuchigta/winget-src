@@ -21,8 +21,9 @@ type githubAsset struct {
 }
 
 type githubRelease struct {
-	Name   string        `json:"name"`
-	Assets []githubAsset `json:"assets"`
+	Name    string        `json:"name"`
+	TagName string        `json:"tag_name"`
+	Assets  []githubAsset `json:"assets"`
 }
 
 func (g Github) providerName() string { return "github" }
@@ -60,7 +61,7 @@ func (g Github) decodeReleases(body io.Reader) ([]release, error) {
 				IsChecksum: strings.Contains(lname, "checksum") && strings.Contains(a.ContentType, "text/plain"),
 			}
 		}
-		releases[i] = release{Name: gr.Name, Assets: assets}
+		releases[i] = release{Name: normalizeVersion(gr.TagName), Assets: assets}
 	}
 	return releases, nil
 }

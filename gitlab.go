@@ -25,8 +25,9 @@ type gitlabAssets struct {
 }
 
 type gitlabRelease struct {
-	Name   string       `json:"name"`
-	Assets gitlabAssets `json:"assets"`
+	Name    string       `json:"name"`
+	TagName string       `json:"tag_name"`
+	Assets  gitlabAssets `json:"assets"`
 }
 
 func (g Gitlab) providerName() string { return "gitlab" }
@@ -62,7 +63,7 @@ func (g Gitlab) decodeReleases(body io.Reader) ([]release, error) {
 				IsChecksum:  strings.Contains(lname, "checksum"),
 			}
 		}
-		releases[i] = release{Name: gr.Name, Assets: assets}
+		releases[i] = release{Name: normalizeVersion(gr.TagName), Assets: assets}
 	}
 	return releases, nil
 }
