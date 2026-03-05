@@ -76,4 +76,5 @@ type Version struct {
 
 type PackageProvider interface {
 	FetchVersions(ctx context.Context, entry PackageListEntry) ([]Version, error)
+	FetchReleaseNames(ctx context.Context, entry PackageListEntry) ([]string, error)
 }

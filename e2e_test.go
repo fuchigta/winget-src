@@ -14,8 +14,11 @@ import (
 // newE2ERepo builds a WingetSrcRepositoryImpl backed by a mock GitHub server.
 func newE2ERepo(t *testing.T, githubServer *httptest.Server, entries []PackageListEntry) WingetSrcRepositoryImpl {
 	t.Helper()
-	cache := NewCache[[]Version](5*time.Minute, 0)
-	cache.StartCleanup(context.Background(), 10*time.Minute)
+	versionCache := NewCache[[]Version](5*time.Minute, 0)
+	versionCache.StartCleanup(context.Background(), 10*time.Minute)
+
+	nameCache := NewCache[[]string](5*time.Minute, 0)
+	nameCache.StartCleanup(context.Background(), 10*time.Minute)
 
 	packageMap := make(map[string]PackageListEntry, len(entries))
 	for _, e := range entries {
@@ -25,7 +28,8 @@ func newE2ERepo(t *testing.T, githubServer *httptest.Server, entries []PackageLi
 	return WingetSrcRepositoryImpl{
 		packageList:         entries,
 		packageMap:          packageMap,
-		versionCache:        cache,
+		versionCache:        versionCache,
+		nameCache:           nameCache,
 		httpClient:          githubServer.Client(),
 		downloadClient:      githubServer.Client(),
 		gracefulDegradation: false,
@@ -80,12 +84,19 @@ func TestE2E_ManifestSearch_Then_PackageManifests(t *testing.T) {
 
 	repo := newE2ERepo(t, githubMock, []PackageListEntry{entry})
 
-	// Pre-populate cache using the mock GitHub server directly (bypasses dispatchProvider)
-	versions, err := Github{httpClient: githubMock.Client(), downloadClient: githubMock.Client(), baseURL: githubMock.URL}.FetchVersions(context.Background(), entry)
+	// Pre-populate caches using the mock GitHub server directly (bypasses dispatchProvider)
+	g := Github{httpClient: githubMock.Client(), downloadClient: githubMock.Client(), baseURL: githubMock.URL}
+	versions, err := g.FetchVersions(context.Background(), entry)
 	if err != nil {
 		t.Fatalf("FetchVersions: %v", err)
 	}
 	repo.versionCache.Set(entry.Id, versions)
+
+	names, err := g.FetchReleaseNames(context.Background(), entry)
+	if err != nil {
+		t.Fatalf("FetchReleaseNames: %v", err)
+	}
+	repo.nameCache.Set(entry.Id, names)
 
 	svc := NewWingetSrcService(repo, "api.winget-src")
 	handler := newE2EHandler(svc)

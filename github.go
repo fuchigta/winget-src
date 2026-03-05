@@ -73,7 +73,12 @@ func (g Github) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Ve
 	if dc == nil {
 		dc = g.httpClient
 	}
-	return fetchAndBuildVersions(ctx, g.httpClient, dc, g, entry)
+	return fetchAndBuildVersions(ctx, g.httpClient, dc, g, entry, nil)
+}
+
+// FetchReleaseNames implements PackageProvider.
+func (g Github) FetchReleaseNames(ctx context.Context, entry PackageListEntry) ([]string, error) {
+	return fetchReleaseNames(ctx, g.httpClient, g, entry)
 }
 
 var _ PackageProvider = Github{}

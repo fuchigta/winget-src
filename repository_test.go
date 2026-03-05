@@ -147,15 +147,21 @@ func BenchmarkQueryManifest_Parallel(b *testing.B) {
 		packageMap[strings.ToLower(id)] = entries[i]
 	}
 
-	cache := NewCache[[]Version](5*time.Minute, 0)
+	versionCache := NewCache[[]Version](5*time.Minute, 0)
 	for _, e := range entries {
-		cache.Set(e.Id, []Version{{Version: "1.0.0"}})
+		versionCache.Set(e.Id, []Version{{Version: "1.0.0"}})
+	}
+
+	nameCache := NewCache[[]string](5*time.Minute, 0)
+	for _, e := range entries {
+		nameCache.Set(e.Id, []string{"1.0.0"})
 	}
 
 	repo := WingetSrcRepositoryImpl{
 		packageList:         entries,
 		packageMap:          packageMap,
-		versionCache:        cache,
+		versionCache:        versionCache,
+		nameCache:           nameCache,
 		httpClient:          http.DefaultClient,
 		gracefulDegradation: false,
 	}

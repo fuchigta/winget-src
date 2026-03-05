@@ -17,13 +17,14 @@ type QueryManifestCondition func(PackageListEntry) bool
 
 type WingetSrcRepository interface {
 	QueryManifest(ctx context.Context, condition QueryManifestCondition) ([]Manifest, error)
-	QueryPackageManifests(ctx context.Context, identifier string) (PackageManifests, error)
+	QueryPackageManifests(ctx context.Context, identifier string, version string) (PackageManifests, error)
 }
 
 type WingetSrcRepositoryImpl struct {
 	packageList         []PackageListEntry
 	packageMap          map[string]PackageListEntry
 	versionCache        *Cache[[]Version]
+	nameCache           *Cache[[]string]
 	httpClient          *http.Client
 	downloadClient      *http.Client
 	gracefulDegradation bool
@@ -121,6 +122,79 @@ func (w WingetSrcRepositoryImpl) fetchVersionsCached(ctx context.Context, entry 
 	return versions, nil
 }
 
+func (w WingetSrcRepositoryImpl) fetchReleaseNamesCached(ctx context.Context, entry PackageListEntry) ([]string, error) {
+	if cached, ok := w.nameCache.Get(entry.Id); ok {
+		return cached, nil
+	}
+
+	provider, err := dispatchProvider(entry, w.httpClient, w.downloadClient)
+	if err != nil {
+		return nil, err
+	}
+
+	const maxAttempts = 3
+	backoff := time.Second
+
+	var names []string
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		start := time.Now()
+		names, err = provider.FetchReleaseNames(ctx, entry)
+		elapsed := time.Since(start)
+
+		if err == nil {
+			slog.Debug("provider fetch release names succeeded",
+				"package", entry.Id,
+				"provider", entry.Provider,
+				"latency_ms", elapsed.Milliseconds(),
+				"versions", len(names),
+			)
+			break
+		}
+
+		slog.Warn("provider fetch release names failed",
+			"package", entry.Id,
+			"provider", entry.Provider,
+			"latency_ms", elapsed.Milliseconds(),
+			"attempt", attempt,
+			"error", err,
+		)
+
+		if attempt == maxAttempts {
+			return nil, fmt.Errorf("fetch release names (after %d attempts): %w", maxAttempts, err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(backoff):
+		}
+
+		if backoff < 8*time.Second {
+			backoff *= 2
+		}
+	}
+
+	w.nameCache.Set(entry.Id, names)
+	return names, nil
+}
+
+// fetchFilteredVersions fetches versions and computes SHA256 only for the specified target versions.
+func (w WingetSrcRepositoryImpl) fetchFilteredVersions(ctx context.Context, entry PackageListEntry, targetVersions []string) ([]Version, error) {
+	provider, err := dispatchProvider(entry, w.httpClient, w.downloadClient)
+	if err != nil {
+		return nil, err
+	}
+	adapter, ok := provider.(releaseAdapter)
+	if !ok {
+		return nil, fmt.Errorf("provider %T does not support filtered fetch", provider)
+	}
+	dc := w.downloadClient
+	if dc == nil {
+		dc = w.httpClient
+	}
+	return fetchAndBuildVersions(ctx, w.httpClient, dc, adapter, entry, targetVersions)
+}
+
 func (w WingetSrcRepositoryImpl) QueryManifest(ctx context.Context, condition QueryManifestCondition) ([]Manifest, error) {
 	matched := []PackageListEntry{}
 	for _, entry := range w.packageList {
@@ -147,15 +221,15 @@ func (w WingetSrcRepositoryImpl) QueryManifest(ctx context.Context, condition Qu
 		i, entry := i, entry
 		go func() {
 			defer wg.Done()
-			versions, err := w.fetchVersionsCached(ctx, entry)
+			names, err := w.fetchReleaseNamesCached(ctx, entry)
 			if err != nil {
 				results[i] = result{index: i, err: err}
 				return
 			}
 			manifestVersions := []ManifestVersion{}
-			for _, version := range versions {
+			for _, name := range names {
 				manifestVersions = append(manifestVersions, ManifestVersion{
-					PackageVersion: version.Version,
+					PackageVersion: name,
 				})
 			}
 			results[i] = result{
@@ -176,7 +250,7 @@ func (w WingetSrcRepositoryImpl) QueryManifest(ctx context.Context, condition Qu
 	for _, r := range results {
 		if r.err != nil {
 			if w.gracefulDegradation {
-				slog.Warn("failed to fetch versions, skipping package", "package", matched[r.index].Id, "error", r.err)
+				slog.Warn("failed to fetch release names, skipping package", "package", matched[r.index].Id, "error", r.err)
 				continue
 			}
 			return nil, r.err
@@ -187,23 +261,29 @@ func (w WingetSrcRepositoryImpl) QueryManifest(ctx context.Context, condition Qu
 	return manifests, nil
 }
 
-func (w WingetSrcRepositoryImpl) QueryPackageManifests(ctx context.Context, identifier string) (PackageManifests, error) {
+func (w WingetSrcRepositoryImpl) QueryPackageManifests(ctx context.Context, identifier string, version string) (PackageManifests, error) {
 	found, ok := w.packageMap[strings.ToLower(identifier)]
 	if !ok {
 		return PackageManifests{}, nil
 	}
 
-	versions, err := w.fetchVersionsCached(ctx, found)
+	var versions []Version
+	var err error
+	if version != "" {
+		versions, err = w.fetchFilteredVersions(ctx, found, []string{version})
+	} else {
+		versions, err = w.fetchVersionsCached(ctx, found)
+	}
 	if err != nil {
 		return PackageManifests{}, err
 	}
 
 	pkgManifestVersions := []PackageManifestsVersion{}
 
-	for _, version := range versions {
+	for _, v := range versions {
 		pkgManifestVersions = append(pkgManifestVersions, PackageManifestsVersion{
-			PackageVersion: version.Version,
-			Installers:     version.Installers,
+			PackageVersion: v.Version,
+			Installers:     v.Installers,
 			DefaultLocale: Locale{
 				PackageName:      found.Name,
 				PackageLocale:    found.GetLocale(),
@@ -248,8 +328,11 @@ func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTT
 		packageMap[strings.ToLower(entry.PackageIdentifier())] = entry
 	}
 
-	cache := NewCache[[]Version](cacheTTL, cacheMaxEntries)
-	cache.StartCleanup(ctx, cacheCleanupInterval)
+	versionCache := NewCache[[]Version](cacheTTL, cacheMaxEntries)
+	versionCache.StartCleanup(ctx, cacheCleanupInterval)
+
+	nameCache := NewCache[[]string](cacheTTL, cacheMaxEntries)
+	nameCache.StartCleanup(ctx, cacheCleanupInterval)
 
 	httpClient := &http.Client{Timeout: httpClientTimeout}
 	// downloadClient has no timeout; large asset downloads are bounded by the handler context timeout.
@@ -258,7 +341,8 @@ func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTT
 	return WingetSrcRepositoryImpl{
 		packageList:         packageList,
 		packageMap:          packageMap,
-		versionCache:        cache,
+		versionCache:        versionCache,
+		nameCache:           nameCache,
 		httpClient:          httpClient,
 		downloadClient:      downloadClient,
 		gracefulDegradation: gracefulDegradation,

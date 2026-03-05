@@ -29,11 +29,23 @@ func (m mockRepository) QueryManifest(ctx context.Context, condition QueryManife
 	return result, nil
 }
 
-func (m mockRepository) QueryPackageManifests(ctx context.Context, identifier string) (PackageManifests, error) {
+func (m mockRepository) QueryPackageManifests(ctx context.Context, identifier string, version string) (PackageManifests, error) {
 	if m.err != nil {
 		return PackageManifests{}, m.err
 	}
 	if m.packageManifest.PackageIdentifier == identifier {
+		if version != "" {
+			filtered := []PackageManifestsVersion{}
+			for _, v := range m.packageManifest.Versions {
+				if v.PackageVersion == version {
+					filtered = append(filtered, v)
+				}
+			}
+			return PackageManifests{
+				PackageIdentifier: m.packageManifest.PackageIdentifier,
+				Versions:          filtered,
+			}, nil
+		}
 		return m.packageManifest, nil
 	}
 	return PackageManifests{}, nil

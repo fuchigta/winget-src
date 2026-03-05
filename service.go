@@ -73,7 +73,7 @@ func (w WingetSrcServiceImpl) ManifestSearch(ctx context.Context, req ManifestSe
 }
 
 func (w WingetSrcServiceImpl) PackageManifests(ctx context.Context, identifier string, version string) (PackageManifestsResponse, error) {
-	res, err := w.repository.QueryPackageManifests(ctx, identifier)
+	res, err := w.repository.QueryPackageManifests(ctx, identifier, version)
 	if err != nil {
 		return PackageManifestsResponse{}, err
 	}
@@ -82,19 +82,8 @@ func (w WingetSrcServiceImpl) PackageManifests(ctx context.Context, identifier s
 		return PackageManifestsResponse{}, nil
 	}
 
-	if len(version) != 0 {
-		found := []PackageManifestsVersion{}
-		for _, v := range res.Versions {
-			if v.PackageVersion == version {
-				found = append(found, v)
-			}
-		}
-
-		if len(found) == 0 {
-			return PackageManifestsResponse{}, fmt.Errorf("version %s not found for package %s", version, identifier)
-		}
-
-		res.Versions = found
+	if version != "" && len(res.Versions) == 0 {
+		return PackageManifestsResponse{}, fmt.Errorf("version %s not found for package %s", version, identifier)
 	}
 
 	return PackageManifestsResponse(res), nil

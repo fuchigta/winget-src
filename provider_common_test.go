@@ -57,7 +57,7 @@ func TestBuildZipPortableVersions(t *testing.T) {
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true})
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestBuildZipPortableVersions_NoMatch(t *testing.T) {
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), http.DefaultClient, entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true})
+	versions, err := buildVersionsForConfig(context.Background(), http.DefaultClient, entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -129,7 +129,7 @@ func TestBuildInstallerVersions_Msi(t *testing.T) {
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".msi", installerType: "msi"})
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".msi", installerType: "msi"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestBuildInstallerVersions_NoMatch(t *testing.T) {
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), http.DefaultClient, entry, releases, installerConfig{ext: ".exe", installerType: "exe"})
+	versions, err := buildVersionsForConfig(context.Background(), http.DefaultClient, entry, releases, installerConfig{ext: ".exe", installerType: "exe"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -293,7 +293,7 @@ func TestBuildZipPortableVersions_CustomScope(t *testing.T) {
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true})
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -328,7 +328,7 @@ func TestBuildInstallerVersions_CustomScope(t *testing.T) {
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".msi", installerType: "msi"})
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".msi", installerType: "msi"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -373,7 +373,7 @@ func TestBuildVersions_FallbackSHA256(t *testing.T) {
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".msi", installerType: "msi"})
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".msi", installerType: "msi"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
