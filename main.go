@@ -112,7 +112,7 @@ func run() int {
 		}
 		srv.TLSConfig = &tls.Config{
 			Certificates: []tls.Certificate{cert},
-			MinVersion:   tls.VersionTLS13,
+			MinVersion:   tls.VersionTLS12,
 		}
 	}
 
