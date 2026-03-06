@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -19,7 +18,7 @@ func TestSHA256Fetcher_CacheHit(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	fetcher := NewSHA256Fetcher(ts.Client(), time.Minute, filepath.Join(t.TempDir(), "cache.json"))
+	fetcher := NewSHA256Fetcher(ts.Client(), time.Minute)
 
 	hash1, err := fetcher.Fetch(context.Background(), ts.URL)
 	if err != nil {
@@ -48,7 +47,7 @@ func TestSHA256Fetcher_InflightDeduplication(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	fetcher := NewSHA256Fetcher(ts.Client(), time.Minute, filepath.Join(t.TempDir(), "cache.json"))
+	fetcher := NewSHA256Fetcher(ts.Client(), time.Minute)
 
 	const goroutines = 5
 	results := make([]string, goroutines)
@@ -92,7 +91,7 @@ func TestSHA256Fetcher_ContextCancelledButComputationContinues(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	fetcher := NewSHA256Fetcher(ts.Client(), time.Minute, filepath.Join(t.TempDir(), "cache.json"))
+	fetcher := NewSHA256Fetcher(ts.Client(), time.Minute)
 
 	// 短いタイムアウトで1回目のリクエスト → コンテキストがキャンセルされる
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
@@ -127,7 +126,7 @@ func TestSHA256Fetcher_ErrorNotCached(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	fetcher := NewSHA256Fetcher(ts.Client(), time.Minute, filepath.Join(t.TempDir(), "cache.json"))
+	fetcher := NewSHA256Fetcher(ts.Client(), time.Minute)
 
 	_, err := fetcher.Fetch(context.Background(), ts.URL)
 	if err == nil {
@@ -145,8 +144,8 @@ func TestSHA256Fetcher_ErrorNotCached(t *testing.T) {
 	}
 }
 
-// TestSHA256Fetcher_DiskCachePersistence はディスクキャッシュが別インスタンスで再利用されることを確認する。
-func TestSHA256Fetcher_DiskCachePersistence(t *testing.T) {
+// TestSHA256Fetcher_Seed は Seed で投入した URL→SHA256 マッピングがキャッシュヒットすることを確認する。
+func TestSHA256Fetcher_Seed(t *testing.T) {
 	var callCount atomic.Int32
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount.Add(1)
@@ -154,28 +153,20 @@ func TestSHA256Fetcher_DiskCachePersistence(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	cacheFile := filepath.Join(t.TempDir(), "cache.json")
+	const expectedHash = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
 
-	// fetcher1 でFetch → HTTP呼び出し1回、キャッシュファイル作成
-	fetcher1 := NewSHA256Fetcher(ts.Client(), time.Minute, cacheFile)
-	hash1, err := fetcher1.Fetch(context.Background(), ts.URL)
-	if err != nil {
-		t.Fatalf("fetcher1 Fetch: %v", err)
-	}
-	if callCount.Load() != 1 {
-		t.Errorf("expected 1 HTTP call, got %d", callCount.Load())
-	}
+	fetcher := NewSHA256Fetcher(ts.Client(), time.Minute)
+	fetcher.Seed(map[string]string{ts.URL: expectedHash})
 
-	// fetcher2（新インスタンス、同一キャッシュファイル）でFetch → HTTP呼び出し0回
-	fetcher2 := NewSHA256Fetcher(ts.Client(), time.Minute, cacheFile)
-	hash2, err := fetcher2.Fetch(context.Background(), ts.URL)
+	// Seed 済みなので HTTP 呼び出しは発生しない
+	hash, err := fetcher.Fetch(context.Background(), ts.URL)
 	if err != nil {
-		t.Fatalf("fetcher2 Fetch: %v", err)
+		t.Fatalf("Fetch after Seed: %v", err)
 	}
-	if callCount.Load() != 1 {
-		t.Errorf("expected still 1 HTTP call (disk cache hit), got %d", callCount.Load())
+	if hash != expectedHash {
+		t.Errorf("expected hash %s, got %s", expectedHash, hash)
 	}
-	if hash1 != hash2 {
-		t.Errorf("expected same hash, got %s and %s", hash1, hash2)
+	if callCount.Load() != 0 {
+		t.Errorf("expected 0 HTTP calls (seed cache hit), got %d", callCount.Load())
 	}
 }

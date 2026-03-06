@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestById(t *testing.T) {
@@ -106,7 +105,7 @@ func TestNewWingetSrcRepository_InvalidYAML(t *testing.T) {
 	f.Close()
 
 	ctx := context.Background()
-	_, err = NewWingetSrcRepository(ctx, f.Name(), 5*time.Minute, 10*time.Minute, false, 0, filepath.Join(t.TempDir(), "cache.json"))
+	_, err = NewWingetSrcRepository(ctx, f.Name(), 0, false, filepath.Join(t.TempDir(), "version_cache.json"))
 	if err == nil {
 		t.Fatal("expected error for invalid YAML")
 	}
@@ -123,7 +122,7 @@ func TestNewWingetSrcRepository_EmptyFile(t *testing.T) {
 	f.Close()
 
 	ctx := context.Background()
-	_, err = NewWingetSrcRepository(ctx, f.Name(), 5*time.Minute, 10*time.Minute, false, 0, filepath.Join(t.TempDir(), "cache.json"))
+	_, err = NewWingetSrcRepository(ctx, f.Name(), 0, false, filepath.Join(t.TempDir(), "version_cache.json"))
 	if err != nil {
 		t.Fatalf("unexpected error for empty yaml list: %v", err)
 	}
@@ -131,7 +130,7 @@ func TestNewWingetSrcRepository_EmptyFile(t *testing.T) {
 
 func TestNewWingetSrcRepository_NonExistentFile(t *testing.T) {
 	ctx := context.Background()
-	_, err := NewWingetSrcRepository(ctx, "/nonexistent/path/packages.yaml", 5*time.Minute, 10*time.Minute, false, 0, filepath.Join(t.TempDir(), "cache.json"))
+	_, err := NewWingetSrcRepository(ctx, "/nonexistent/path/packages.yaml", 0, false, filepath.Join(t.TempDir(), "version_cache.json"))
 	if err == nil {
 		t.Fatal("expected error for non-existent file")
 	}
@@ -148,21 +147,15 @@ func BenchmarkQueryManifest_Parallel(b *testing.B) {
 		packageMap[strings.ToLower(id)] = entries[i]
 	}
 
-	versionCache := NewCache[[]Version](5*time.Minute, 0)
+	versionCache := NewVersionCache("")
 	for _, e := range entries {
 		versionCache.Set(e.Id, []Version{{Version: "1.0.0"}})
-	}
-
-	nameCache := NewCache[[]string](5*time.Minute, 0)
-	for _, e := range entries {
-		nameCache.Set(e.Id, []string{"1.0.0"})
 	}
 
 	repo := WingetSrcRepositoryImpl{
 		packageList:         entries,
 		packageMap:          packageMap,
 		versionCache:        versionCache,
-		nameCache:           nameCache,
 		httpClient:          http.DefaultClient,
 		gracefulDegradation: false,
 	}
@@ -176,23 +169,4 @@ func BenchmarkQueryManifest_Parallel(b *testing.B) {
 			}
 		}
 	})
-}
-
-func BenchmarkCache_Get_Hit(b *testing.B) {
-	c := NewCache[[]Version](5*time.Minute, 0)
-	c.Set("key", []Version{{Version: "1.0.0"}})
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		c.Get("key")
-	}
-}
-
-func BenchmarkCache_Set(b *testing.B) {
-	c := NewCache[[]Version](5*time.Minute, 0)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		c.Set("key", []Version{{Version: "1.0.0"}})
-	}
 }

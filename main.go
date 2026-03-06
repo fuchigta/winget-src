@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -28,16 +27,14 @@ func run() int {
 
 	port := fs.String("port", "8080", "listen port")
 	packageListPath := fs.String("package-list", "", "path to packages.yaml (required)")
-	cacheTTLStr := fs.String("cache-ttl", "5m", "cache TTL")
-	cacheCleanupStr := fs.String("cache-cleanup-interval", "10m", "cache cleanup interval")
 	handlerTimeoutStr := fs.String("handler-timeout", "60s", "handler timeout")
 	gracefulDegradation := fs.Bool("graceful-degradation", false, "return partial results when some providers fail")
 	sourceIdentifier := fs.String("source-identifier", "api.winget-src", "WinGet source identifier")
 	tlsCert := fs.String("tls-cert", "", "TLS certificate file")
 	tlsKey := fs.String("tls-key", "", "TLS key file")
 	logLevel := fs.String("log-level", "info", "log level (debug, info, warn, error)")
-	cacheMaxEntriesStr := fs.String("cache-max-entries", "0", "max number of cache entries (0 = unlimited)")
-	sha256CacheFile := fs.String("sha256-cache-file", "", "path to SHA256 disk cache file (env: SHA256_CACHE_FILE)")
+	refreshIntervalStr := fs.String("refresh-interval", "5m", "interval for automatic cache refresh (0 to disable)")
+	versionCacheFile := fs.String("version-cache-file", "", "path to version disk cache file (default: same dir as package-list)")
 
 	if err := ff.Parse(fs, os.Args[1:], ff.WithEnvVarPrefix("")); err != nil {
 		slog.Error(err.Error())
@@ -64,8 +61,8 @@ func run() int {
 		return exitErr
 	}
 
-	if *sha256CacheFile == "" {
-		*sha256CacheFile = filepath.Join(filepath.Dir(*packageListPath), "sha256_cache.json")
+	if *versionCacheFile == "" {
+		*versionCacheFile = filepath.Join(filepath.Dir(*packageListPath), "version_cache.json")
 	}
 
 	parseDuration := func(s string, def time.Duration) time.Duration {
@@ -77,21 +74,13 @@ func run() int {
 		return d
 	}
 
-	cacheTTL := parseDuration(*cacheTTLStr, 5*time.Minute)
-	cacheCleanupInterval := parseDuration(*cacheCleanupStr, 10*time.Minute)
+	refreshInterval := parseDuration(*refreshIntervalStr, 5*time.Minute)
 	handlerTimeout := parseDuration(*handlerTimeoutStr, 60*time.Second)
-
-	cacheMaxEntries := 0
-	if n, err := strconv.Atoi(*cacheMaxEntriesStr); err == nil && n >= 0 {
-		cacheMaxEntries = n
-	} else if *cacheMaxEntriesStr != "0" {
-		slog.Warn("invalid cache-max-entries, using 0 (unlimited)", "value", *cacheMaxEntriesStr)
-	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	repository, err := NewWingetSrcRepository(ctx, *packageListPath, cacheTTL, cacheCleanupInterval, *gracefulDegradation, cacheMaxEntries, *sha256CacheFile)
+	repository, err := NewWingetSrcRepository(ctx, *packageListPath, refreshInterval, *gracefulDegradation, *versionCacheFile)
 	if err != nil {
 		slog.Error(err.Error())
 		return exitErr
