@@ -96,10 +96,10 @@ func run() int {
 	srv := &http.Server{
 		Addr:              ":" + *port,
 		Handler:           handler,
-		ReadHeaderTimeout: 30 * time.Second,
-		ReadTimeout:       60 * time.Second,
-		WriteTimeout:      60 * time.Second,
-		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: handlerTimeout / 2,
+		ReadTimeout:       handlerTimeout,
+		WriteTimeout:      handlerTimeout + 10*time.Second,
+		IdleTimeout:       handlerTimeout * 2,
 	}
 
 	if *tlsCert != "" && *tlsKey != "" {

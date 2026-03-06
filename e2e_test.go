@@ -31,7 +31,6 @@ func newE2ERepo(t *testing.T, githubServer *httptest.Server, entries []PackageLi
 		versionCache:        versionCache,
 		nameCache:           nameCache,
 		httpClient:          githubServer.Client(),
-		downloadClient:      githubServer.Client(),
 		gracefulDegradation: false,
 	}
 }
