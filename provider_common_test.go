@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -445,7 +446,7 @@ func TestFetchVersions_ExplicitDownloadClientSucceeds(t *testing.T) {
 
 	// httpClient に短いタイムアウト、fetcher に slow.Client()（タイムアウトなし）
 	httpClient := &http.Client{Timeout: 100 * time.Millisecond}
-	fetcher := NewSHA256Fetcher(slow.Client(), 10*time.Minute)
+	fetcher := NewSHA256Fetcher(slow.Client(), 10*time.Minute, filepath.Join(t.TempDir(), "cache.json"))
 	entry := PackageListEntry{Name: "myapp"}
 	releases := []release{
 		{

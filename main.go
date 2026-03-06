@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -36,6 +37,7 @@ func run() int {
 	tlsKey := fs.String("tls-key", "", "TLS key file")
 	logLevel := fs.String("log-level", "info", "log level (debug, info, warn, error)")
 	cacheMaxEntriesStr := fs.String("cache-max-entries", "0", "max number of cache entries (0 = unlimited)")
+	sha256CacheFile := fs.String("sha256-cache-file", "", "path to SHA256 disk cache file (env: SHA256_CACHE_FILE)")
 
 	if err := ff.Parse(fs, os.Args[1:], ff.WithEnvVarPrefix("")); err != nil {
 		slog.Error(err.Error())
@@ -62,6 +64,10 @@ func run() int {
 		return exitErr
 	}
 
+	if *sha256CacheFile == "" {
+		*sha256CacheFile = filepath.Join(filepath.Dir(*packageListPath), "sha256_cache.json")
+	}
+
 	parseDuration := func(s string, def time.Duration) time.Duration {
 		d, err := time.ParseDuration(s)
 		if err != nil {
@@ -85,7 +91,7 @@ func run() int {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	repository, err := NewWingetSrcRepository(ctx, *packageListPath, cacheTTL, cacheCleanupInterval, *gracefulDegradation, cacheMaxEntries)
+	repository, err := NewWingetSrcRepository(ctx, *packageListPath, cacheTTL, cacheCleanupInterval, *gracefulDegradation, cacheMaxEntries, *sha256CacheFile)
 	if err != nil {
 		slog.Error(err.Error())
 		return exitErr

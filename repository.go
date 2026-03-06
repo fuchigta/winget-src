@@ -285,7 +285,17 @@ func dispatchProvider(entry PackageListEntry, httpClient *http.Client, sha256Fet
 	}
 }
 
-func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTTL time.Duration, cacheCleanupInterval time.Duration, gracefulDegradation bool, cacheMaxEntries int) (WingetSrcRepository, error) {
+func (w WingetSrcRepositoryImpl) warmUp() {
+	slog.Info("sha256 warmup: starting", "packages", len(w.packageList))
+	for _, entry := range w.packageList {
+		if _, err := w.fetchVersionsCached(context.Background(), entry); err != nil {
+			slog.Warn("sha256 warmup: failed", "package", entry.Id, "error", err)
+		}
+	}
+	slog.Info("sha256 warmup: completed", "packages", len(w.packageList))
+}
+
+func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTTL time.Duration, cacheCleanupInterval time.Duration, gracefulDegradation bool, cacheMaxEntries int, sha256CacheFile string) (WingetSrcRepository, error) {
 	f, err := os.Open(packageListPath)
 	if err != nil {
 		return nil, err
@@ -311,9 +321,9 @@ func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTT
 	httpClient := &http.Client{}
 	// sha256Fetcher uses context.Background() internally, so SHA256 computation continues even if
 	// the request context times out. The result is cached, so the next request gets it immediately.
-	sha256Fetcher := NewSHA256Fetcher(httpClient, 10*time.Minute)
+	sha256Fetcher := NewSHA256Fetcher(httpClient, 10*time.Minute, sha256CacheFile)
 
-	return WingetSrcRepositoryImpl{
+	impl := WingetSrcRepositoryImpl{
 		packageList:         packageList,
 		packageMap:          packageMap,
 		versionCache:        versionCache,
@@ -321,5 +331,7 @@ func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTT
 		httpClient:          httpClient,
 		sha256Fetcher:       sha256Fetcher,
 		gracefulDegradation: gracefulDegradation,
-	}, nil
+	}
+	go impl.warmUp()
+	return impl, nil
 }

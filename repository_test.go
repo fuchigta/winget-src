@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -105,7 +106,7 @@ func TestNewWingetSrcRepository_InvalidYAML(t *testing.T) {
 	f.Close()
 
 	ctx := context.Background()
-	_, err = NewWingetSrcRepository(ctx, f.Name(), 5*time.Minute, 10*time.Minute, false, 0)
+	_, err = NewWingetSrcRepository(ctx, f.Name(), 5*time.Minute, 10*time.Minute, false, 0, filepath.Join(t.TempDir(), "cache.json"))
 	if err == nil {
 		t.Fatal("expected error for invalid YAML")
 	}
@@ -122,7 +123,7 @@ func TestNewWingetSrcRepository_EmptyFile(t *testing.T) {
 	f.Close()
 
 	ctx := context.Background()
-	_, err = NewWingetSrcRepository(ctx, f.Name(), 5*time.Minute, 10*time.Minute, false, 0)
+	_, err = NewWingetSrcRepository(ctx, f.Name(), 5*time.Minute, 10*time.Minute, false, 0, filepath.Join(t.TempDir(), "cache.json"))
 	if err != nil {
 		t.Fatalf("unexpected error for empty yaml list: %v", err)
 	}
@@ -130,7 +131,7 @@ func TestNewWingetSrcRepository_EmptyFile(t *testing.T) {
 
 func TestNewWingetSrcRepository_NonExistentFile(t *testing.T) {
 	ctx := context.Background()
-	_, err := NewWingetSrcRepository(ctx, "/nonexistent/path/packages.yaml", 5*time.Minute, 10*time.Minute, false, 0)
+	_, err := NewWingetSrcRepository(ctx, "/nonexistent/path/packages.yaml", 5*time.Minute, 10*time.Minute, false, 0, filepath.Join(t.TempDir(), "cache.json"))
 	if err == nil {
 		t.Fatal("expected error for non-existent file")
 	}

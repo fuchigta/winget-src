@@ -2,7 +2,13 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"log/slog"
+	"maps"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -22,18 +28,78 @@ type SHA256Fetcher struct {
 	inflight  map[string]*sha256Job
 	client    *http.Client
 	bgTimeout time.Duration
+	cacheFile string // 空文字列の場合はディスクキャッシュ無効
 }
 
 // NewSHA256Fetcher は新しい SHA256Fetcher を返す。
 // client はダウンロード用HTTPクライアント（タイムアウトなし推奨）。
 // bgTimeout はバックグラウンド計算のタイムアウト。
-func NewSHA256Fetcher(client *http.Client, bgTimeout time.Duration) *SHA256Fetcher {
-	return &SHA256Fetcher{
+// cacheFile はディスクキャッシュファイルのパス（空文字列の場合は無効）。
+func NewSHA256Fetcher(client *http.Client, bgTimeout time.Duration, cacheFile string) *SHA256Fetcher {
+	f := &SHA256Fetcher{
 		cache:     make(map[string]string),
 		inflight:  make(map[string]*sha256Job),
 		client:    client,
 		bgTimeout: bgTimeout,
+		cacheFile: cacheFile,
 	}
+	if cacheFile != "" {
+		if err := f.loadDiskCache(); err != nil {
+			slog.Warn("failed to load sha256 disk cache", "file", cacheFile, "error", err)
+		}
+	}
+	return f
+}
+
+func (f *SHA256Fetcher) loadDiskCache() error {
+	data, err := os.ReadFile(f.cacheFile)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+	var loaded map[string]string
+	if err := json.Unmarshal(data, &loaded); err != nil {
+		return err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for k, v := range loaded {
+		f.cache[k] = v
+	}
+	return nil
+}
+
+func (f *SHA256Fetcher) saveDiskCache() error {
+	f.mu.Lock()
+	snapshot := maps.Clone(f.cache)
+	f.mu.Unlock()
+
+	data, err := json.Marshal(snapshot)
+	if err != nil {
+		return err
+	}
+
+	dir := filepath.Dir(f.cacheFile)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, "sha256cache-*.tmp")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+	return os.Rename(tmpName, f.cacheFile)
 }
 
 // Fetch は指定URLのSHA256ハッシュ（hex）を返す。
@@ -61,8 +127,6 @@ func (f *SHA256Fetcher) Fetch(ctx context.Context, url string) (string, error) {
 	f.mu.Unlock()
 
 	go func() {
-		// done チャンネルのクローズは defer の LIFO 順で最後に実行される。
-		// キャッシュ更新 → unlock → done close の順が保証される。
 		defer close(job.done)
 
 		bgCtx, cancel := context.WithTimeout(context.Background(), f.bgTimeout)
@@ -73,10 +137,16 @@ func (f *SHA256Fetcher) Fetch(ctx context.Context, url string) (string, error) {
 		job.err = err
 
 		f.mu.Lock()
-		defer f.mu.Unlock()
 		delete(f.inflight, url)
 		if err == nil {
 			f.cache[url] = result
+		}
+		f.mu.Unlock()
+
+		if err == nil && f.cacheFile != "" {
+			if saveErr := f.saveDiskCache(); saveErr != nil {
+				slog.Warn("failed to save sha256 disk cache", "file", f.cacheFile, "error", saveErr)
+			}
 		}
 	}()
 
