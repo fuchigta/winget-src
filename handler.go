@@ -10,6 +10,30 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
+type slogLogFormatter struct{}
+
+func (f *slogLogFormatter) NewLogEntry(r *http.Request) middleware.LogEntry {
+	return &slogLogEntry{r: r}
+}
+
+type slogLogEntry struct {
+	r *http.Request
+}
+
+func (e *slogLogEntry) Write(status, bytes int, _ http.Header, elapsed time.Duration, _ any) {
+	slog.Info("access",
+		"method", e.r.Method,
+		"path", e.r.RequestURI,
+		"status", status,
+		"bytes", bytes,
+		"elapsed", elapsed,
+	)
+}
+
+func (e *slogLogEntry) Panic(v any, stack []byte) {
+	slog.Error("panic", "error", v, "stack", string(stack))
+}
+
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Add("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -26,7 +50,7 @@ func NewWingetSrcHandler(service WingetSrcService, timeout time.Duration) http.H
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
+	r.Use(middleware.RequestLogger(&slogLogFormatter{}))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(timeout))
 
