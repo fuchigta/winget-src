@@ -94,7 +94,10 @@ docker build -t winget-src .
 | `description` | ✓ | パッケージの説明 |
 | `installer_type` | ✓ | インストーラー形式（`zip-portable`、`msi`、`exe`） |
 | `token` | - | 認証トークン（プライベートリポジトリやレート制限緩和に使用） |
+| `token_env` | - | 認証トークンを読み込む環境変数名（`token` より優先度低） |
 | `license` | - | ライセンス情報（例: `MIT`） |
+| `locale` | - | パッケージのロケール（省略時: `en-US`） |
+| `scope` | - | インストールスコープ（`user` または `machine`、省略時: `user`） |
 | `executable_name` | - | 実行ファイル名（`zip-portable`専用、省略時は `{name}.exe`） |
 | `endpoint` | - | GitLabのエンドポイント（GitLab専用、デフォルト: `https://gitlab.com`） |
 | `project_id` | - | GitLabのプロジェクトID（GitLab専用） |
@@ -112,10 +115,11 @@ export PORT=8080                            # オプション、デフォルト:
 |---------|-----------|------|
 | `CACHE_TTL` | `5m` | バージョン情報キャッシュの有効期限 |
 | `CACHE_CLEANUP_INTERVAL` | `10m` | 期限切れキャッシュの定期削除間隔 |
-| `HTTP_CLIENT_TIMEOUT` | `30s` | 外部APIへのHTTPリクエストのタイムアウト |
+| `CACHE_MAX_ENTRIES` | `0` | キャッシュの最大エントリ数（`0` で無制限） |
 | `HANDLER_TIMEOUT` | `60s` | HTTPハンドラー全体のタイムアウト |
 | `GRACEFUL_DEGRADATION` | `false` | `true` の場合、一部プロバイダー失敗時も他の成功結果を返す |
 | `SOURCE_IDENTIFIER` | `api.winget-src` | WinGet API の SourceIdentifier フィールド値 |
+| `LOG_LEVEL` | `info` | ログレベル（`debug`, `info`, `warn`, `error`） |
 | `TLS_CERT` | - | TLS証明書ファイルのパス（設定時はHTTPSで起動） |
 | `TLS_KEY` | - | TLS秘密鍵ファイルのパス（`TLS_CERT`と合わせて設定） |
 
@@ -317,6 +321,7 @@ winget source add -n local-src -a https://localhost:8443 -t "Microsoft.Rest"
 
 - [chi/v5](https://github.com/go-chi/chi) - HTTPルーター
 - [yaml.v3](https://gopkg.in/yaml.v3) - YAML解析
+- [ff/v3](https://github.com/peterbourgon/ff) - フラグ・環境変数解析
 
 ### ディレクトリ構成
 
