@@ -27,6 +27,7 @@ type WingetSrcRepositoryImpl struct {
 	nameCache           *Cache[[]string]
 	httpClient          *http.Client
 	downloadClient      *http.Client
+	sha256Fetcher       *SHA256Fetcher
 	gracefulDegradation bool
 }
 
@@ -71,7 +72,7 @@ func (w WingetSrcRepositoryImpl) fetchVersionsCached(ctx context.Context, entry 
 		return cached, nil
 	}
 
-	provider, err := dispatchProvider(entry, w.httpClient, w.downloadClient)
+	provider, err := dispatchProvider(entry, w.httpClient, w.downloadClient, w.sha256Fetcher)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +128,7 @@ func (w WingetSrcRepositoryImpl) fetchReleaseNamesCached(ctx context.Context, en
 		return cached, nil
 	}
 
-	provider, err := dispatchProvider(entry, w.httpClient, w.downloadClient)
+	provider, err := dispatchProvider(entry, w.httpClient, w.downloadClient, w.sha256Fetcher)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +181,7 @@ func (w WingetSrcRepositoryImpl) fetchReleaseNamesCached(ctx context.Context, en
 
 // fetchFilteredVersions fetches versions and computes SHA256 only for the specified target versions.
 func (w WingetSrcRepositoryImpl) fetchFilteredVersions(ctx context.Context, entry PackageListEntry, targetVersions []string) ([]Version, error) {
-	provider, err := dispatchProvider(entry, w.httpClient, w.downloadClient)
+	provider, err := dispatchProvider(entry, w.httpClient, w.downloadClient, w.sha256Fetcher)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +193,7 @@ func (w WingetSrcRepositoryImpl) fetchFilteredVersions(ctx context.Context, entr
 	if dc == nil {
 		dc = w.httpClient
 	}
-	return fetchAndBuildVersions(ctx, w.httpClient, dc, adapter, entry, targetVersions)
+	return fetchAndBuildVersions(ctx, w.httpClient, dc, w.sha256Fetcher, adapter, entry, targetVersions)
 }
 
 func (w WingetSrcRepositoryImpl) QueryManifest(ctx context.Context, condition QueryManifestCondition) ([]Manifest, error) {
@@ -300,12 +301,12 @@ func (w WingetSrcRepositoryImpl) QueryPackageManifests(ctx context.Context, iden
 	}, nil
 }
 
-func dispatchProvider(entry PackageListEntry, httpClient *http.Client, downloadClient *http.Client) (PackageProvider, error) {
+func dispatchProvider(entry PackageListEntry, httpClient *http.Client, downloadClient *http.Client, sha256Fetcher *SHA256Fetcher) (PackageProvider, error) {
 	switch entry.Provider {
 	case "github":
-		return Github{httpClient: httpClient, downloadClient: downloadClient}, nil
+		return Github{httpClient: httpClient, downloadClient: downloadClient, sha256Fetcher: sha256Fetcher}, nil
 	case "gitlab":
-		return Gitlab{httpClient: httpClient, downloadClient: downloadClient}, nil
+		return Gitlab{httpClient: httpClient, downloadClient: downloadClient, sha256Fetcher: sha256Fetcher}, nil
 	default:
 		return nil, fmt.Errorf("unknown package provider: %s", entry.Provider)
 	}
@@ -337,6 +338,9 @@ func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTT
 	httpClient := &http.Client{Timeout: httpClientTimeout}
 	// downloadClient has no timeout; large asset downloads are bounded by the handler context timeout.
 	downloadClient := &http.Client{}
+	// sha256Fetcher uses context.Background() internally, so SHA256 computation continues even if
+	// the request context times out. The result is cached, so the next request gets it immediately.
+	sha256Fetcher := NewSHA256Fetcher(downloadClient, 10*time.Minute)
 
 	return WingetSrcRepositoryImpl{
 		packageList:         packageList,
@@ -345,6 +349,7 @@ func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTT
 		nameCache:           nameCache,
 		httpClient:          httpClient,
 		downloadClient:      downloadClient,
+		sha256Fetcher:       sha256Fetcher,
 		gracefulDegradation: gracefulDegradation,
 	}, nil
 }

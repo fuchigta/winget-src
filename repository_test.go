@@ -78,7 +78,7 @@ func TestDispatchProvider(t *testing.T) {
 		{"unknown", true},
 	}
 	for _, tt := range tests {
-		_, err := dispatchProvider(PackageListEntry{Provider: tt.provider}, http.DefaultClient, http.DefaultClient)
+		_, err := dispatchProvider(PackageListEntry{Provider: tt.provider}, http.DefaultClient, http.DefaultClient, nil)
 		if (err != nil) != tt.wantErr {
 			t.Errorf("dispatchProvider(%q) error = %v, wantErr = %v", tt.provider, err, tt.wantErr)
 		}
@@ -86,7 +86,7 @@ func TestDispatchProvider(t *testing.T) {
 }
 
 func TestDispatchProvider_ErrorContainsProviderName(t *testing.T) {
-	_, err := dispatchProvider(PackageListEntry{Provider: "myunknownprovider"}, http.DefaultClient, http.DefaultClient)
+	_, err := dispatchProvider(PackageListEntry{Provider: "myunknownprovider"}, http.DefaultClient, http.DefaultClient, nil)
 	if err == nil {
 		t.Fatal("expected error for unknown provider")
 	}

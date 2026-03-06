@@ -34,9 +34,10 @@ type releaseAdapter interface {
 }
 
 // fetchAndBuildVersions implements the common fetch-decode-build pipeline.
-// apiClient is used for the releases API call; downloadClient is used for downloading assets (SHA256 computation).
+// apiClient is used for the releases API call; downloadClient is used for checksum file fetching.
+// fetcher handles SHA256 computation with caching and background deduplication; nil falls back to direct download via downloadClient.
 // targetVersions, when non-empty, restricts SHA256 computation to only the specified release names.
-func fetchAndBuildVersions(ctx context.Context, apiClient *http.Client, downloadClient *http.Client, adapter releaseAdapter, entry PackageListEntry, targetVersions []string) ([]Version, error) {
+func fetchAndBuildVersions(ctx context.Context, apiClient *http.Client, downloadClient *http.Client, fetcher *SHA256Fetcher, adapter releaseAdapter, entry PackageListEntry, targetVersions []string) ([]Version, error) {
 	req, err := adapter.buildRequest(ctx, entry)
 	if err != nil {
 		return nil, fmt.Errorf("%s releases API: %w", adapter.providerName(), err)
@@ -58,7 +59,7 @@ func fetchAndBuildVersions(ctx context.Context, apiClient *http.Client, download
 		return nil, fmt.Errorf("%s releases API response decode: %w", adapter.providerName(), err)
 	}
 
-	return dispatchInstallerBuilder(ctx, downloadClient, entry, releases, targetVersions)
+	return dispatchInstallerBuilder(ctx, downloadClient, fetcher, entry, releases, targetVersions)
 }
 
 // fetchReleaseNames fetches only the release names (version strings) without computing SHA256.
@@ -128,7 +129,7 @@ type installerConfig struct {
 	zipPortable   bool
 }
 
-func buildVersionsForConfig(ctx context.Context, client *http.Client, entry PackageListEntry, releases []release, cfg installerConfig, targetVersions []string) ([]Version, error) {
+func buildVersionsForConfig(ctx context.Context, client *http.Client, fetcher *SHA256Fetcher, entry PackageListEntry, releases []release, cfg installerConfig, targetVersions []string) ([]Version, error) {
 	versions := []Version{}
 	for _, rel := range releases {
 		if len(targetVersions) > 0 && !slices.Contains(targetVersions, rel.Name) {
@@ -150,7 +151,13 @@ func buildVersionsForConfig(ctx context.Context, client *http.Client, entry Pack
 			}
 			sha256hex := checksums[asset.Name]
 			if sha256hex == "" {
-				computed, err := computeSHA256FromURL(ctx, client, asset.DownloadUrl)
+				var computed string
+				var err error
+				if fetcher != nil {
+					computed, err = fetcher.Fetch(ctx, asset.DownloadUrl)
+				} else {
+					computed, err = computeSHA256FromURL(ctx, client, asset.DownloadUrl)
+				}
 				if err != nil {
 					return nil, fmt.Errorf("computing sha256 for %s: %w", asset.Name, err)
 				}
@@ -187,14 +194,14 @@ func buildVersionsForConfig(ctx context.Context, client *http.Client, entry Pack
 }
 
 // dispatchInstallerBuilder routes to the appropriate version builder based on installer type.
-func dispatchInstallerBuilder(ctx context.Context, client *http.Client, entry PackageListEntry, releases []release, targetVersions []string) ([]Version, error) {
+func dispatchInstallerBuilder(ctx context.Context, client *http.Client, fetcher *SHA256Fetcher, entry PackageListEntry, releases []release, targetVersions []string) ([]Version, error) {
 	switch entry.InstallerType {
 	case InstallerTypeZipPortable:
-		return buildVersionsForConfig(ctx, client, entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true}, targetVersions)
+		return buildVersionsForConfig(ctx, client, fetcher, entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true}, targetVersions)
 	case InstallerTypeMsi:
-		return buildVersionsForConfig(ctx, client, entry, releases, installerConfig{ext: ".msi", installerType: InstallerTypeMsi}, targetVersions)
+		return buildVersionsForConfig(ctx, client, fetcher, entry, releases, installerConfig{ext: ".msi", installerType: InstallerTypeMsi}, targetVersions)
 	case InstallerTypeExe:
-		return buildVersionsForConfig(ctx, client, entry, releases, installerConfig{ext: ".exe", installerType: InstallerTypeExe}, targetVersions)
+		return buildVersionsForConfig(ctx, client, fetcher, entry, releases, installerConfig{ext: ".exe", installerType: InstallerTypeExe}, targetVersions)
 	default:
 		return nil, fmt.Errorf("unknown installer type: %s", entry.InstallerType)
 	}

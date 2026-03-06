@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestDetectArch(t *testing.T) {
@@ -57,7 +58,7 @@ func TestBuildZipPortableVersions(t *testing.T) {
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true}, nil)
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), nil, entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -99,7 +100,7 @@ func TestBuildZipPortableVersions_NoMatch(t *testing.T) {
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), http.DefaultClient, entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true}, nil)
+	versions, err := buildVersionsForConfig(context.Background(), http.DefaultClient, nil, entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -129,7 +130,7 @@ func TestBuildInstallerVersions_Msi(t *testing.T) {
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".msi", installerType: "msi"}, nil)
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), nil, entry, releases, installerConfig{ext: ".msi", installerType: "msi"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -164,7 +165,7 @@ func TestBuildInstallerVersions_NoMatch(t *testing.T) {
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), http.DefaultClient, entry, releases, installerConfig{ext: ".exe", installerType: "exe"}, nil)
+	versions, err := buildVersionsForConfig(context.Background(), http.DefaultClient, nil, entry, releases, installerConfig{ext: ".exe", installerType: "exe"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -293,7 +294,7 @@ func TestBuildZipPortableVersions_CustomScope(t *testing.T) {
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true}, nil)
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), nil, entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -328,7 +329,7 @@ func TestBuildInstallerVersions_CustomScope(t *testing.T) {
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".msi", installerType: "msi"}, nil)
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), nil, entry, releases, installerConfig{ext: ".msi", installerType: "msi"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -373,7 +374,7 @@ func TestBuildVersions_FallbackSHA256(t *testing.T) {
 		},
 	}
 
-	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), entry, releases, installerConfig{ext: ".msi", installerType: "msi"}, nil)
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), nil, entry, releases, installerConfig{ext: ".msi", installerType: "msi"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -399,5 +400,70 @@ func TestCollectChecksums_FetchError(t *testing.T) {
 	_, err := collectChecksums(context.Background(), http.DefaultClient, assets)
 	if err == nil {
 		t.Fatal("expected error when fetching checksums fails")
+	}
+}
+
+// TestFetchVersions_NilDownloadClientFallback はdownloadClientがnilのとき、
+// httpClientにフォールバックすることを確認するテスト（フェーズ1）。
+func TestFetchVersions_NilDownloadClientFallback(t *testing.T) {
+	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// httpClient のタイムアウトより長い遅延
+		time.Sleep(200 * time.Millisecond)
+		w.Write([]byte("fake installer content"))
+	}))
+	defer slow.Close()
+
+	// httpClient に短いタイムアウト、downloadClient は nil
+	httpClient := &http.Client{Timeout: 100 * time.Millisecond}
+	entry := PackageListEntry{Name: "myapp"}
+	releases := []release{
+		{
+			Name: "v1.0.0",
+			Assets: []releaseAsset{
+				{Name: "myapp_windows_x64.msi", DownloadUrl: slow.URL + "/myapp_windows_x64.msi"},
+			},
+		},
+	}
+
+	// nil fetcher → computeSHA256FromURL が直接 httpClient を使う想定
+	// (downloadClient=nil なので httpClient にフォールバック)
+	_, err := buildVersionsForConfig(context.Background(), httpClient, nil, entry, releases, installerConfig{ext: ".msi", installerType: "msi"}, nil)
+	if err == nil {
+		t.Fatal("expected timeout error when downloadClient is nil and httpClient has short timeout")
+	}
+}
+
+// TestFetchVersions_ExplicitDownloadClient はdownloadClientを明示的に設定すると
+// httpClientのタイムアウトに関係なくダウンロードできることを確認するテスト（フェーズ1）。
+func TestFetchVersions_ExplicitDownloadClientSucceeds(t *testing.T) {
+	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// httpClient のタイムアウトより長い遅延
+		time.Sleep(200 * time.Millisecond)
+		w.Write([]byte("fake installer content"))
+	}))
+	defer slow.Close()
+
+	// httpClient に短いタイムアウト、fetcher に slow.Client()（タイムアウトなし）
+	httpClient := &http.Client{Timeout: 100 * time.Millisecond}
+	fetcher := NewSHA256Fetcher(slow.Client(), 10*time.Minute)
+	entry := PackageListEntry{Name: "myapp"}
+	releases := []release{
+		{
+			Name: "v1.0.0",
+			Assets: []releaseAsset{
+				{Name: "myapp_windows_x64.msi", DownloadUrl: slow.URL + "/myapp_windows_x64.msi"},
+			},
+		},
+	}
+
+	versions, err := buildVersionsForConfig(context.Background(), httpClient, fetcher, entry, releases, installerConfig{ext: ".msi", installerType: "msi"}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(versions) != 1 || len(versions[0].Installers) != 1 {
+		t.Fatal("expected 1 version with 1 installer")
+	}
+	if versions[0].Installers[0].InstallerSha256 == "" {
+		t.Error("expected non-empty InstallerSha256")
 	}
 }

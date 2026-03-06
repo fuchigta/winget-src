@@ -12,6 +12,7 @@ import (
 type Gitlab struct {
 	httpClient     *http.Client
 	downloadClient *http.Client
+	sha256Fetcher  *SHA256Fetcher
 	baseURL        string
 }
 
@@ -75,7 +76,7 @@ func (g Gitlab) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Ve
 	if dc == nil {
 		dc = g.httpClient
 	}
-	return fetchAndBuildVersions(ctx, g.httpClient, dc, g, entry, nil)
+	return fetchAndBuildVersions(ctx, g.httpClient, dc, g.sha256Fetcher, g, entry, nil)
 }
 
 // FetchReleaseNames implements PackageProvider.
