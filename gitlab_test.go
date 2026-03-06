@@ -46,7 +46,7 @@ func TestGitlab_FetchVersions_ZipPortable(t *testing.T) {
 	tsURL = ts.URL
 	defer ts.Close()
 
-	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}
+	g := Gitlab{httpClient: ts.Client(), downloadClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
 		ProjectID:     42,
@@ -108,7 +108,7 @@ func TestGitlab_FetchVersions_Exe(t *testing.T) {
 	tsURL = ts.URL
 	defer ts.Close()
 
-	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}
+	g := Gitlab{httpClient: ts.Client(), downloadClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
 		ProjectID:     42,
@@ -137,7 +137,7 @@ func TestGitlab_FetchVersions_ErrorResponse(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}
+	g := Gitlab{httpClient: ts.Client(), downloadClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
 		ProjectID:     42,
@@ -161,7 +161,7 @@ func TestGitlab_FetchVersions_WithToken(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}
+	g := Gitlab{httpClient: ts.Client(), downloadClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
 		ProjectID:     42,
@@ -188,7 +188,7 @@ func TestGitlab_FetchVersions_UnknownInstallerType(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}
+	g := Gitlab{httpClient: ts.Client(), downloadClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
 		ProjectID:     42,
@@ -211,7 +211,7 @@ func TestGitlab_FetchVersions_FallbackToEndpoint(t *testing.T) {
 	defer ts.Close()
 
 	// baseURLを指定せず、entry.Endpointを使用
-	g := Gitlab{httpClient: ts.Client()}
+	g := Gitlab{httpClient: ts.Client(), downloadClient: ts.Client()}
 
 	entry := PackageListEntry{
 		Endpoint:      ts.URL,

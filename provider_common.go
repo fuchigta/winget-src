@@ -33,58 +33,49 @@ type releaseAdapter interface {
 	providerName() string
 }
 
+// fetchReleases fetches and decodes the release list from the provider API.
+func fetchReleases(ctx context.Context, apiClient *http.Client, adapter releaseAdapter, entry PackageListEntry) ([]release, error) {
+	req, err := adapter.buildRequest(ctx, entry)
+	if err != nil {
+		return nil, fmt.Errorf("%s releases API: %w", adapter.providerName(), err)
+	}
+
+	res, err := apiClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%s releases API: %w", adapter.providerName(), err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		contents, _ := io.ReadAll(io.LimitReader(res.Body, maxResponseBodySize))
+		return nil, fmt.Errorf("%s releases API status %d: %s", adapter.providerName(), res.StatusCode, contents)
+	}
+
+	releases, err := adapter.decodeReleases(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("%s releases API response decode: %w", adapter.providerName(), err)
+	}
+	return releases, nil
+}
+
 // fetchAndBuildVersions implements the common fetch-decode-build pipeline.
 // apiClient is used for the releases API call; downloadClient is used for checksum file fetching.
 // fetcher handles SHA256 computation with caching and background deduplication; nil falls back to direct download via downloadClient.
 // targetVersions, when non-empty, restricts SHA256 computation to only the specified release names.
 func fetchAndBuildVersions(ctx context.Context, apiClient *http.Client, downloadClient *http.Client, fetcher *SHA256Fetcher, adapter releaseAdapter, entry PackageListEntry, targetVersions []string) ([]Version, error) {
-	req, err := adapter.buildRequest(ctx, entry)
+	releases, err := fetchReleases(ctx, apiClient, adapter, entry)
 	if err != nil {
-		return nil, fmt.Errorf("%s releases API: %w", adapter.providerName(), err)
+		return nil, err
 	}
-
-	res, err := apiClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("%s releases API: %w", adapter.providerName(), err)
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		contents, _ := io.ReadAll(io.LimitReader(res.Body, maxResponseBodySize))
-		return nil, fmt.Errorf("%s releases API status %d: %s", adapter.providerName(), res.StatusCode, contents)
-	}
-
-	releases, err := adapter.decodeReleases(res.Body)
-	if err != nil {
-		return nil, fmt.Errorf("%s releases API response decode: %w", adapter.providerName(), err)
-	}
-
 	return dispatchInstallerBuilder(ctx, downloadClient, fetcher, entry, releases, targetVersions)
 }
 
 // fetchReleaseNames fetches only the release names (version strings) without computing SHA256.
 func fetchReleaseNames(ctx context.Context, apiClient *http.Client, adapter releaseAdapter, entry PackageListEntry) ([]string, error) {
-	req, err := adapter.buildRequest(ctx, entry)
+	releases, err := fetchReleases(ctx, apiClient, adapter, entry)
 	if err != nil {
-		return nil, fmt.Errorf("%s releases API: %w", adapter.providerName(), err)
+		return nil, err
 	}
-
-	res, err := apiClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("%s releases API: %w", adapter.providerName(), err)
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		contents, _ := io.ReadAll(io.LimitReader(res.Body, maxResponseBodySize))
-		return nil, fmt.Errorf("%s releases API status %d: %s", adapter.providerName(), res.StatusCode, contents)
-	}
-
-	releases, err := adapter.decodeReleases(res.Body)
-	if err != nil {
-		return nil, fmt.Errorf("%s releases API response decode: %w", adapter.providerName(), err)
-	}
-
 	names := make([]string, len(releases))
 	for i, rel := range releases {
 		names[i] = rel.Name

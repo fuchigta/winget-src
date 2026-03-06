@@ -70,11 +70,7 @@ func (g Github) decodeReleases(body io.Reader) ([]release, error) {
 
 // FetchVersions implements PackageProvider.
 func (g Github) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Version, error) {
-	dc := g.downloadClient
-	if dc == nil {
-		dc = g.httpClient
-	}
-	return fetchAndBuildVersions(ctx, g.httpClient, dc, g.sha256Fetcher, g, entry, nil)
+	return fetchAndBuildVersions(ctx, g.httpClient, g.downloadClient, g.sha256Fetcher, g, entry, nil)
 }
 
 // FetchReleaseNames implements PackageProvider.

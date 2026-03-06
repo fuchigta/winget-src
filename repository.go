@@ -67,6 +67,54 @@ func And(conditions ...QueryManifestCondition) QueryManifestCondition {
 	}
 }
 
+// fetchWithRetry calls fn up to 3 times with exponential backoff, logging each attempt.
+func fetchWithRetry[T any](ctx context.Context, pkg, provider, opName string, fn func() (T, error)) (T, error) {
+	const maxAttempts = 3
+	backoff := time.Second
+
+	var result T
+	var err error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		start := time.Now()
+		result, err = fn()
+		elapsed := time.Since(start)
+
+		if err == nil {
+			slog.Debug("provider "+opName+" succeeded",
+				"package", pkg,
+				"provider", provider,
+				"latency_ms", elapsed.Milliseconds(),
+			)
+			return result, nil
+		}
+
+		slog.Warn("provider "+opName+" failed",
+			"package", pkg,
+			"provider", provider,
+			"latency_ms", elapsed.Milliseconds(),
+			"attempt", attempt,
+			"error", err,
+		)
+
+		if attempt == maxAttempts {
+			var zero T
+			return zero, fmt.Errorf("%s (after %d attempts): %w", opName, maxAttempts, err)
+		}
+
+		select {
+		case <-ctx.Done():
+			var zero T
+			return zero, ctx.Err()
+		case <-time.After(backoff):
+		}
+
+		if backoff < 8*time.Second {
+			backoff *= 2
+		}
+	}
+	return result, err
+}
+
 func (w WingetSrcRepositoryImpl) fetchVersionsCached(ctx context.Context, entry PackageListEntry) ([]Version, error) {
 	if cached, ok := w.versionCache.Get(entry.Id); ok {
 		return cached, nil
@@ -77,46 +125,11 @@ func (w WingetSrcRepositoryImpl) fetchVersionsCached(ctx context.Context, entry 
 		return nil, err
 	}
 
-	const maxAttempts = 3
-	backoff := time.Second
-
-	var versions []Version
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		start := time.Now()
-		versions, err = provider.FetchVersions(ctx, entry)
-		elapsed := time.Since(start)
-
-		if err == nil {
-			slog.Debug("provider fetch succeeded",
-				"package", entry.Id,
-				"provider", entry.Provider,
-				"latency_ms", elapsed.Milliseconds(),
-				"versions", len(versions),
-			)
-			break
-		}
-
-		slog.Warn("provider fetch failed",
-			"package", entry.Id,
-			"provider", entry.Provider,
-			"latency_ms", elapsed.Milliseconds(),
-			"attempt", attempt,
-			"error", err,
-		)
-
-		if attempt == maxAttempts {
-			return nil, fmt.Errorf("fetch versions (after %d attempts): %w", maxAttempts, err)
-		}
-
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(backoff):
-		}
-
-		if backoff < 8*time.Second {
-			backoff *= 2
-		}
+	versions, err := fetchWithRetry(ctx, entry.Id, entry.Provider, "fetch versions", func() ([]Version, error) {
+		return provider.FetchVersions(ctx, entry)
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	w.versionCache.Set(entry.Id, versions)
@@ -133,46 +146,11 @@ func (w WingetSrcRepositoryImpl) fetchReleaseNamesCached(ctx context.Context, en
 		return nil, err
 	}
 
-	const maxAttempts = 3
-	backoff := time.Second
-
-	var names []string
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		start := time.Now()
-		names, err = provider.FetchReleaseNames(ctx, entry)
-		elapsed := time.Since(start)
-
-		if err == nil {
-			slog.Debug("provider fetch release names succeeded",
-				"package", entry.Id,
-				"provider", entry.Provider,
-				"latency_ms", elapsed.Milliseconds(),
-				"versions", len(names),
-			)
-			break
-		}
-
-		slog.Warn("provider fetch release names failed",
-			"package", entry.Id,
-			"provider", entry.Provider,
-			"latency_ms", elapsed.Milliseconds(),
-			"attempt", attempt,
-			"error", err,
-		)
-
-		if attempt == maxAttempts {
-			return nil, fmt.Errorf("fetch release names (after %d attempts): %w", maxAttempts, err)
-		}
-
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-time.After(backoff):
-		}
-
-		if backoff < 8*time.Second {
-			backoff *= 2
-		}
+	names, err := fetchWithRetry(ctx, entry.Id, entry.Provider, "fetch release names", func() ([]string, error) {
+		return provider.FetchReleaseNames(ctx, entry)
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	w.nameCache.Set(entry.Id, names)
@@ -302,6 +280,9 @@ func (w WingetSrcRepositoryImpl) QueryPackageManifests(ctx context.Context, iden
 }
 
 func dispatchProvider(entry PackageListEntry, httpClient *http.Client, downloadClient *http.Client, sha256Fetcher *SHA256Fetcher) (PackageProvider, error) {
+	if downloadClient == nil {
+		downloadClient = httpClient
+	}
 	switch entry.Provider {
 	case "github":
 		return Github{httpClient: httpClient, downloadClient: downloadClient, sha256Fetcher: sha256Fetcher}, nil
