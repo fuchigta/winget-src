@@ -59,15 +59,14 @@ func fetchReleases(ctx context.Context, apiClient *http.Client, adapter releaseA
 }
 
 // fetchAndBuildVersions implements the common fetch-decode-build pipeline.
-// apiClient is used for the releases API call; downloadClient is used for checksum file fetching.
-// fetcher handles SHA256 computation with caching and background deduplication; nil falls back to direct download via downloadClient.
+// fetcher handles SHA256 computation with caching and background deduplication; nil falls back to direct download via client.
 // targetVersions, when non-empty, restricts SHA256 computation to only the specified release names.
-func fetchAndBuildVersions(ctx context.Context, apiClient *http.Client, downloadClient *http.Client, fetcher *SHA256Fetcher, adapter releaseAdapter, entry PackageListEntry, targetVersions []string) ([]Version, error) {
-	releases, err := fetchReleases(ctx, apiClient, adapter, entry)
+func fetchAndBuildVersions(ctx context.Context, client *http.Client, fetcher *SHA256Fetcher, adapter releaseAdapter, entry PackageListEntry, targetVersions []string) ([]Version, error) {
+	releases, err := fetchReleases(ctx, client, adapter, entry)
 	if err != nil {
 		return nil, err
 	}
-	return dispatchInstallerBuilder(ctx, downloadClient, fetcher, entry, releases, targetVersions)
+	return dispatchInstallerBuilder(ctx, client, fetcher, entry, releases, targetVersions)
 }
 
 // fetchReleaseNames fetches only the release names (version strings) without computing SHA256.

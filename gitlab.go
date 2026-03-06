@@ -10,10 +10,9 @@ import (
 )
 
 type Gitlab struct {
-	httpClient     *http.Client
-	downloadClient *http.Client
-	sha256Fetcher  *SHA256Fetcher
-	baseURL        string
+	httpClient    *http.Client
+	sha256Fetcher *SHA256Fetcher
+	baseURL       string
 }
 
 type gitlabAssetLink struct {
@@ -27,7 +26,6 @@ type gitlabAssets struct {
 }
 
 type gitlabRelease struct {
-	Name    string       `json:"name"`
 	TagName string       `json:"tag_name"`
 	Assets  gitlabAssets `json:"assets"`
 }
@@ -72,7 +70,7 @@ func (g Gitlab) decodeReleases(body io.Reader) ([]release, error) {
 
 // FetchVersions implements PackageProvider.
 func (g Gitlab) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Version, error) {
-	return fetchAndBuildVersions(ctx, g.httpClient, g.downloadClient, g.sha256Fetcher, g, entry, nil)
+	return fetchAndBuildVersions(ctx, g.httpClient, g.sha256Fetcher, g, entry, nil)
 }
 
 // FetchReleaseNames implements PackageProvider.

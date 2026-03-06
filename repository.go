@@ -70,11 +70,10 @@ func fetchWithRetry[T any](ctx context.Context, pkg, provider, opName string, fn
 	const maxAttempts = 3
 	backoff := time.Second
 
-	var result T
-	var err error
+	var zero T
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		start := time.Now()
-		result, err = fn()
+		result, err := fn()
 		elapsed := time.Since(start)
 
 		if err == nil {
@@ -95,13 +94,11 @@ func fetchWithRetry[T any](ctx context.Context, pkg, provider, opName string, fn
 		)
 
 		if attempt == maxAttempts {
-			var zero T
 			return zero, fmt.Errorf("%s (after %d attempts): %w", opName, maxAttempts, err)
 		}
 
 		select {
 		case <-ctx.Done():
-			var zero T
 			return zero, ctx.Err()
 		case <-time.After(backoff):
 		}
@@ -110,7 +107,7 @@ func fetchWithRetry[T any](ctx context.Context, pkg, provider, opName string, fn
 			backoff *= 2
 		}
 	}
-	return result, err
+	panic("unreachable")
 }
 
 func (w WingetSrcRepositoryImpl) fetchVersionsCached(ctx context.Context, entry PackageListEntry) ([]Version, error) {
@@ -163,7 +160,7 @@ func (w WingetSrcRepositoryImpl) fetchFilteredVersions(ctx context.Context, entr
 	if !ok {
 		return nil, fmt.Errorf("provider %T does not support filtered fetch", provider)
 	}
-	return fetchAndBuildVersions(ctx, w.httpClient, w.httpClient, w.sha256Fetcher, adapter, entry, targetVersions)
+	return fetchAndBuildVersions(ctx, w.httpClient, w.sha256Fetcher, adapter, entry, targetVersions)
 }
 
 func (w WingetSrcRepositoryImpl) QueryManifest(ctx context.Context, condition QueryManifestCondition) ([]Manifest, error) {
@@ -274,9 +271,9 @@ func (w WingetSrcRepositoryImpl) QueryPackageManifests(ctx context.Context, iden
 func dispatchProvider(entry PackageListEntry, httpClient *http.Client, sha256Fetcher *SHA256Fetcher) (PackageProvider, error) {
 	switch entry.Provider {
 	case "github":
-		return Github{httpClient: httpClient, downloadClient: httpClient, sha256Fetcher: sha256Fetcher}, nil
+		return Github{httpClient: httpClient, sha256Fetcher: sha256Fetcher}, nil
 	case "gitlab":
-		return Gitlab{httpClient: httpClient, downloadClient: httpClient, sha256Fetcher: sha256Fetcher}, nil
+		return Gitlab{httpClient: httpClient, sha256Fetcher: sha256Fetcher}, nil
 	default:
 		return nil, fmt.Errorf("unknown package provider: %s", entry.Provider)
 	}

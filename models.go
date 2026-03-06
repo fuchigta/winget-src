@@ -51,15 +51,6 @@ type NestedInstallerFile struct {
 	RelativeFilePath string
 }
 
-const (
-	InstallerSwitchesSilent             = "Silent"
-	InstallerSwitchesSilentWithProgress = "SilentWithProgress"
-	InstallerSwitchesInteractive        = "Interactive"
-	InstallerSwitchesInstallLocation    = "InstallLocation"
-	InstallerSwitchesLog                = "Log"
-	InstallerSwitchesUpgrade            = "Upgrade"
-	InstallerSwitchesCustom             = "Custom"
-)
 
 type Installer struct {
 	Architecture         string

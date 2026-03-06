@@ -17,7 +17,6 @@ func TestGithub_FetchVersions_ZipPortable(t *testing.T) {
 		}
 		releases := []githubRelease{
 			{
-				Name:    "My App v1.0.0",
 				TagName: "v1.0.0",
 				Assets: []githubAsset{
 					{
@@ -44,7 +43,7 @@ func TestGithub_FetchVersions_ZipPortable(t *testing.T) {
 	tsURL = ts.URL
 	defer ts.Close()
 
-	g := Github{httpClient: ts.Client(), downloadClient: ts.Client(), baseURL: ts.URL}
+	g := Github{httpClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
 		Id:            "owner/myapp",
@@ -83,7 +82,7 @@ func TestGithub_FetchVersions_Msi(t *testing.T) {
 		}
 		releases := []githubRelease{
 			{
-				Name: "v2.0.0",
+				TagName: "v2.0.0",
 				Assets: []githubAsset{
 					{
 						Name:               "checksums.txt",
@@ -109,7 +108,7 @@ func TestGithub_FetchVersions_Msi(t *testing.T) {
 	tsURL = ts.URL
 	defer ts.Close()
 
-	g := Github{httpClient: ts.Client(), downloadClient: ts.Client(), baseURL: ts.URL}
+	g := Github{httpClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
 		Id:            "owner/myapp",
@@ -144,7 +143,7 @@ func TestGithub_FetchVersions_ErrorResponse(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	g := Github{httpClient: ts.Client(), downloadClient: ts.Client(), baseURL: ts.URL}
+	g := Github{httpClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
 		Id:            "owner/myapp",
@@ -160,13 +159,13 @@ func TestGithub_FetchVersions_ErrorResponse(t *testing.T) {
 
 func TestGithub_FetchVersions_UnknownInstallerType(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		releases := []githubRelease{{Name: "v1.0.0"}}
+		releases := []githubRelease{{TagName: "v1.0.0"}}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(releases)
 	}))
 	defer ts.Close()
 
-	g := Github{httpClient: ts.Client(), downloadClient: ts.Client(), baseURL: ts.URL}
+	g := Github{httpClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
 		Id:            "owner/myapp",
@@ -190,7 +189,7 @@ func TestGithub_FetchVersions_WithToken(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	g := Github{httpClient: ts.Client(), downloadClient: ts.Client(), baseURL: ts.URL}
+	g := Github{httpClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
 		Id:            "owner/myapp",

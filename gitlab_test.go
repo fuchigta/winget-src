@@ -17,7 +17,6 @@ func TestGitlab_FetchVersions_ZipPortable(t *testing.T) {
 		}
 		releases := []gitlabRelease{
 			{
-				Name:    "My App v1.0.0",
 				TagName: "v1.0.0",
 				Assets: gitlabAssets{
 					Links: []gitlabAssetLink{
@@ -46,7 +45,7 @@ func TestGitlab_FetchVersions_ZipPortable(t *testing.T) {
 	tsURL = ts.URL
 	defer ts.Close()
 
-	g := Gitlab{httpClient: ts.Client(), downloadClient: ts.Client(), baseURL: ts.URL}
+	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
 		ProjectID:     42,
@@ -85,7 +84,7 @@ func TestGitlab_FetchVersions_Exe(t *testing.T) {
 		}
 		releases := []gitlabRelease{
 			{
-				Name: "v3.0.0",
+				TagName: "v3.0.0",
 				Assets: gitlabAssets{
 					Links: []gitlabAssetLink{
 						{
@@ -108,7 +107,7 @@ func TestGitlab_FetchVersions_Exe(t *testing.T) {
 	tsURL = ts.URL
 	defer ts.Close()
 
-	g := Gitlab{httpClient: ts.Client(), downloadClient: ts.Client(), baseURL: ts.URL}
+	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
 		ProjectID:     42,
@@ -137,7 +136,7 @@ func TestGitlab_FetchVersions_ErrorResponse(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	g := Gitlab{httpClient: ts.Client(), downloadClient: ts.Client(), baseURL: ts.URL}
+	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
 		ProjectID:     42,
@@ -161,7 +160,7 @@ func TestGitlab_FetchVersions_WithToken(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	g := Gitlab{httpClient: ts.Client(), downloadClient: ts.Client(), baseURL: ts.URL}
+	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
 		ProjectID:     42,
@@ -182,13 +181,13 @@ func TestGitlab_FetchVersions_WithToken(t *testing.T) {
 
 func TestGitlab_FetchVersions_UnknownInstallerType(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		releases := []gitlabRelease{{Name: "v1.0.0"}}
+		releases := []gitlabRelease{{TagName: "v1.0.0"}}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(releases)
 	}))
 	defer ts.Close()
 
-	g := Gitlab{httpClient: ts.Client(), downloadClient: ts.Client(), baseURL: ts.URL}
+	g := Gitlab{httpClient: ts.Client(), baseURL: ts.URL}
 
 	entry := PackageListEntry{
 		ProjectID:     42,
@@ -211,7 +210,7 @@ func TestGitlab_FetchVersions_FallbackToEndpoint(t *testing.T) {
 	defer ts.Close()
 
 	// baseURLを指定せず、entry.Endpointを使用
-	g := Gitlab{httpClient: ts.Client(), downloadClient: ts.Client()}
+	g := Gitlab{httpClient: ts.Client()}
 
 	entry := PackageListEntry{
 		Endpoint:      ts.URL,

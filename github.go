@@ -10,10 +10,9 @@ import (
 )
 
 type Github struct {
-	httpClient     *http.Client
-	downloadClient *http.Client
-	sha256Fetcher  *SHA256Fetcher
-	baseURL        string
+	httpClient    *http.Client
+	sha256Fetcher *SHA256Fetcher
+	baseURL       string
 }
 
 type githubAsset struct {
@@ -23,7 +22,6 @@ type githubAsset struct {
 }
 
 type githubRelease struct {
-	Name    string        `json:"name"`
 	TagName string        `json:"tag_name"`
 	Assets  []githubAsset `json:"assets"`
 }
@@ -70,7 +68,7 @@ func (g Github) decodeReleases(body io.Reader) ([]release, error) {
 
 // FetchVersions implements PackageProvider.
 func (g Github) FetchVersions(ctx context.Context, entry PackageListEntry) ([]Version, error) {
-	return fetchAndBuildVersions(ctx, g.httpClient, g.downloadClient, g.sha256Fetcher, g, entry, nil)
+	return fetchAndBuildVersions(ctx, g.httpClient, g.sha256Fetcher, g, entry, nil)
 }
 
 // FetchReleaseNames implements PackageProvider.
