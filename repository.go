@@ -312,7 +312,7 @@ func dispatchProvider(entry PackageListEntry, httpClient *http.Client, downloadC
 	}
 }
 
-func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTTL time.Duration, cacheCleanupInterval time.Duration, httpClientTimeout time.Duration, gracefulDegradation bool, cacheMaxEntries int) (WingetSrcRepository, error) {
+func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTTL time.Duration, cacheCleanupInterval time.Duration, gracefulDegradation bool, cacheMaxEntries int) (WingetSrcRepository, error) {
 	f, err := os.Open(packageListPath)
 	if err != nil {
 		return nil, err
@@ -335,8 +335,7 @@ func NewWingetSrcRepository(ctx context.Context, packageListPath string, cacheTT
 	nameCache := NewCache[[]string](cacheTTL, cacheMaxEntries)
 	nameCache.StartCleanup(ctx, cacheCleanupInterval)
 
-	httpClient := &http.Client{Timeout: httpClientTimeout}
-	// downloadClient has no timeout; large asset downloads are bounded by the handler context timeout.
+	httpClient := &http.Client{}
 	downloadClient := &http.Client{}
 	// sha256Fetcher uses context.Background() internally, so SHA256 computation continues even if
 	// the request context times out. The result is cached, so the next request gets it immediately.

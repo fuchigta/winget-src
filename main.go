@@ -29,7 +29,6 @@ func run() int {
 	packageListPath := fs.String("package-list", "", "path to packages.yaml (required)")
 	cacheTTLStr := fs.String("cache-ttl", "5m", "cache TTL")
 	cacheCleanupStr := fs.String("cache-cleanup-interval", "10m", "cache cleanup interval")
-	httpTimeoutStr := fs.String("http-client-timeout", "30s", "HTTP client timeout")
 	handlerTimeoutStr := fs.String("handler-timeout", "60s", "handler timeout")
 	gracefulDegradation := fs.Bool("graceful-degradation", false, "return partial results when some providers fail")
 	sourceIdentifier := fs.String("source-identifier", "api.winget-src", "WinGet source identifier")
@@ -74,7 +73,6 @@ func run() int {
 
 	cacheTTL := parseDuration(*cacheTTLStr, 5*time.Minute)
 	cacheCleanupInterval := parseDuration(*cacheCleanupStr, 10*time.Minute)
-	httpClientTimeout := parseDuration(*httpTimeoutStr, 30*time.Second)
 	handlerTimeout := parseDuration(*handlerTimeoutStr, 60*time.Second)
 
 	cacheMaxEntries := 0
@@ -87,7 +85,7 @@ func run() int {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	repository, err := NewWingetSrcRepository(ctx, *packageListPath, cacheTTL, cacheCleanupInterval, httpClientTimeout, *gracefulDegradation, cacheMaxEntries)
+	repository, err := NewWingetSrcRepository(ctx, *packageListPath, cacheTTL, cacheCleanupInterval, *gracefulDegradation, cacheMaxEntries)
 	if err != nil {
 		slog.Error(err.Error())
 		return exitErr
