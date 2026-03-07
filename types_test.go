@@ -18,8 +18,15 @@ func TestGetLocale_Custom(t *testing.T) {
 
 func TestGetScope_Default(t *testing.T) {
 	entry := PackageListEntry{}
-	if got := entry.GetScope(); got != DefaultInstallerScope {
-		t.Errorf("GetScope() = %q, want %q", got, DefaultInstallerScope)
+	if got := entry.GetScope(); got != "" {
+		t.Errorf("GetScope() = %q, want %q", got, "")
+	}
+}
+
+func TestGetScope_MsiDefault(t *testing.T) {
+	entry := PackageListEntry{InstallerType: InstallerTypeMsi}
+	if got := entry.GetScope(); got != "machine" {
+		t.Errorf("GetScope() = %q, want %q", got, "machine")
 	}
 }
 

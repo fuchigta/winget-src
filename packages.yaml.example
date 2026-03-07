@@ -31,7 +31,7 @@
 #  token: ""                      # プライベートリポジトリの場合は GitHub PAT を設定
 #  installer_type: zip-portable   # zip-portable / msi / exe
 #  locale: en-US                  # パッケージのロケール（省略時: en-US）
-#  scope: user                    # インストールスコープ: user / machine（省略時: user）
+#  scope: user                    # インストールスコープ: user / machine（MSI省略時: machine、その他省略時: 未指定）
 
 # GitHub プロバイダーの例（MSI形式）
 #- provider: github
