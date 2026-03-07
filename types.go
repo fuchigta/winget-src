@@ -30,9 +30,11 @@ type PackageListEntry struct {
 	ProjectID      uint   `yaml:"project_id"`
 	Token          string `yaml:"token"`
 	TokenEnv       string `yaml:"token_env"`
-	InstallerType  string `yaml:"installer_type"`
-	Locale         string `yaml:"locale"`
-	Scope          string `yaml:"scope"`
+	InstallerType   string `yaml:"installer_type"`
+	Locale          string `yaml:"locale"`
+	Scope           string `yaml:"scope"`
+	UpgradeBehavior string `yaml:"upgrade_behavior"`
+	ProductCode     string `yaml:"product_code"`
 }
 
 // PackageIdentifier returns the WinGet-compatible package identifier
@@ -56,6 +58,14 @@ func (e PackageListEntry) GetScope() string {
 		return e.Scope
 	}
 	return DefaultInstallerScope
+}
+
+// GetUpgradeBehavior returns the upgrade behavior, defaulting to "install".
+func (e PackageListEntry) GetUpgradeBehavior() string {
+	if e.UpgradeBehavior != "" {
+		return e.UpgradeBehavior
+	}
+	return "install"
 }
 
 // GetToken returns the token for this entry. Token takes precedence over TokenEnv.

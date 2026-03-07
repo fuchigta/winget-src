@@ -51,16 +51,26 @@ type NestedInstallerFile struct {
 	RelativeFilePath string
 }
 
+type AppsAndFeaturesEntry struct {
+	DisplayName    string `json:"DisplayName,omitempty"`
+	Publisher      string `json:"Publisher,omitempty"`
+	DisplayVersion string `json:"DisplayVersion,omitempty"`
+	ProductCode    string `json:"ProductCode,omitempty"`
+	UpgradeCode    string `json:"UpgradeCode,omitempty"`
+	InstallerType  string `json:"InstallerType,omitempty"`
+}
 
 type Installer struct {
-	Architecture         string
-	InstallerType        string
-	InstallerUrl         string
-	InstallerSha256      string                `json:"InstallerSha256,omitempty"`
-	Scope                string                `json:"Scope,omitempty"`
-	NestedInstallerType  string                `json:"NestedInstallerType,omitempty"`
-	NestedInstallerFiles []NestedInstallerFile `json:"NestedInstallerFiles,omitempty"`
-	InstallerSwitches    map[string]string     `json:"InstallerSwitches,omitempty"`
+	Architecture           string
+	InstallerType          string
+	InstallerUrl           string
+	InstallerSha256        string                 `json:"InstallerSha256,omitempty"`
+	Scope                  string                 `json:"Scope,omitempty"`
+	UpgradeBehavior        string                 `json:"UpgradeBehavior,omitempty"`
+	AppsAndFeaturesEntries []AppsAndFeaturesEntry `json:"AppsAndFeaturesEntries,omitempty"`
+	NestedInstallerType    string                 `json:"NestedInstallerType,omitempty"`
+	NestedInstallerFiles   []NestedInstallerFile  `json:"NestedInstallerFiles,omitempty"`
+	InstallerSwitches      map[string]string      `json:"InstallerSwitches,omitempty"`
 }
 
 type Locale struct {

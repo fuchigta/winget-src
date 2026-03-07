@@ -159,6 +159,15 @@ func buildVersionsForConfig(ctx context.Context, client *http.Client, fetcher *S
 				InstallerUrl:    asset.DownloadUrl,
 				InstallerSha256: sha256hex,
 				Scope:           entry.GetScope(),
+				UpgradeBehavior: entry.GetUpgradeBehavior(),
+			}
+			if entry.ProductCode != "" {
+				inst.AppsAndFeaturesEntries = []AppsAndFeaturesEntry{
+					{
+						ProductCode:  entry.ProductCode,
+						InstallerType: cfg.installerType,
+					},
+				}
 			}
 			if cfg.zipPortable {
 				executableName := entry.ExecutableName

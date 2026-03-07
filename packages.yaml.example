@@ -19,6 +19,8 @@
   installer_type: msi
   license: MIT
   locale: ja-JP
+  upgrade_behavior: install       # install または uninstallPrevious（省略時: install）
+  # product_code: "{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}"  # MSI の ProductCode GUID（任意）
 
 # GitHub プロバイダーの例（zip-portable形式）
 #- provider: github
