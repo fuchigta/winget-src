@@ -13,7 +13,7 @@ WinGet互換のREST APIサーバー。GitHub/GitLabのリリース情報をWinGe
 - **マルチインストーラー対応**: zip-portable（ZIPポータブル）、msi、exeのインストーラー形式をサポート
 - **マルチアーキテクチャ**: x64、x86、ARM64に対応
 - **チェックサム検証**: SHA256チェックサムの自動取得と検証
-- **キャッシュ機能**: バージョン情報をメモリキャッシュして外部APIへのリクエストを削減
+- **キャッシュ機能**: バージョン情報をメモリ・ディスクにキャッシュし、バックグラウンドで定期更新。外部APIへのリクエストを削減
 - **Graceful Degradation**: 一部プロバイダーの失敗時も他の成功結果を返すオプション
 - **軽量**: Go言語で実装された高速なマイクロサービス
 - **クロスプラットフォーム**: Windows、Linux、macOS向けビルド対応
@@ -97,7 +97,9 @@ docker build -t winget-src .
 | `token_env` | - | 認証トークンを読み込む環境変数名（`token` より優先度低） |
 | `license` | - | ライセンス情報（例: `MIT`） |
 | `locale` | - | パッケージのロケール（省略時: `en-US`） |
-| `scope` | - | インストールスコープ（`user` または `machine`、省略時: `user`） |
+| `scope` | - | インストールスコープ（`user` または `machine`、省略時: MSIは`machine`、その他は未指定） |
+| `upgrade_behavior` | - | アップグレード動作（`install` または `uninstallPrevious`、省略時: `install`） |
+| `product_code` | - | MSIのProductCode GUID（任意） |
 | `executable_name` | - | 実行ファイル名（`zip-portable`専用、省略時は `{name}.exe`） |
 | `endpoint` | - | GitLabのエンドポイント（GitLab専用、デフォルト: `https://gitlab.com`） |
 | `project_id` | - | GitLabのプロジェクトID（GitLab専用） |
@@ -113,9 +115,8 @@ export PORT=8080                            # オプション、デフォルト:
 
 | 環境変数 | デフォルト | 説明 |
 |---------|-----------|------|
-| `CACHE_TTL` | `5m` | バージョン情報キャッシュの有効期限 |
-| `CACHE_CLEANUP_INTERVAL` | `10m` | 期限切れキャッシュの定期削除間隔 |
-| `CACHE_MAX_ENTRIES` | `0` | キャッシュの最大エントリ数（`0` で無制限） |
+| `REFRESH_INTERVAL` | `5m` | バックグラウンドキャッシュ更新間隔（`0` で無効） |
+| `VERSION_CACHE_FILE` | `<package-listと同じディレクトリ>/version_cache.json` | バージョンキャッシュのディスク保存先（空で無効） |
 | `HANDLER_TIMEOUT` | `60s` | HTTPハンドラー全体のタイムアウト |
 | `GRACEFUL_DEGRADATION` | `false` | `true` の場合、一部プロバイダー失敗時も他の成功結果を返す |
 | `SOURCE_IDENTIFIER` | `api.winget-src` | WinGet API の SourceIdentifier フィールド値 |
@@ -338,7 +339,8 @@ winget source add -n local-src -a https://localhost:8443 -t "Microsoft.Rest"
 ├── repository.go               # データアクセス層・キャッシュ管理
 ├── models.go                   # WinGet APIモデル
 ├── types.go                    # 型定義
-├── cache.go                    # 汎用キャッシュ実装
+├── version_cache.go            # バージョンキャッシュ（メモリ+ディスク永続化）
+├── sha256_fetcher.go           # SHA256チェックサム非同期取得
 ├── github.go                   # GitHubプロバイダー
 ├── gitlab.go                   # GitLabプロバイダー
 ├── provider_common.go          # プロバイダー共通関数
