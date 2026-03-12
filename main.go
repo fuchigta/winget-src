@@ -35,6 +35,7 @@ func run() int {
 	logLevel := fs.String("log-level", "info", "log level (debug, info, warn, error)")
 	refreshIntervalStr := fs.String("refresh-interval", "5m", "interval for automatic cache refresh (0 to disable)")
 	versionCacheFile := fs.String("version-cache-file", "", "path to version disk cache file (default: same dir as package-list)")
+	check := fs.Bool("check", false, "check if cache can be built for all packages without starting the server")
 
 	if err := ff.Parse(fs, os.Args[1:], ff.WithEnvVarPrefix("")); err != nil {
 		slog.Error(err.Error())
@@ -79,6 +80,10 @@ func run() int {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+
+	if *check {
+		return runCheck(ctx, *packageListPath, *versionCacheFile)
+	}
 
 	repository, err := NewWingetSrcRepository(ctx, *packageListPath, refreshInterval, *gracefulDegradation, *versionCacheFile)
 	if err != nil {
