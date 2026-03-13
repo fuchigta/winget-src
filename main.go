@@ -82,7 +82,7 @@ func run() int {
 	defer stop()
 
 	if *check {
-		return runCheck(ctx, *packageListPath, *versionCacheFile)
+		return runCheck(ctx, *packageListPath)
 	}
 
 	repository, err := NewWingetSrcRepository(ctx, *packageListPath, refreshInterval, *gracefulDegradation, *versionCacheFile)
