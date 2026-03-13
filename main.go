@@ -33,6 +33,7 @@ func run() int {
 	tlsCert := fs.String("tls-cert", "", "TLS certificate file")
 	tlsKey := fs.String("tls-key", "", "TLS key file")
 	logLevel := fs.String("log-level", "info", "log level (debug, info, warn, error)")
+	logFormat := fs.String("log-format", "logfmt", "log format (logfmt, json)")
 	refreshIntervalStr := fs.String("refresh-interval", "5m", "interval for automatic cache refresh (0 to disable)")
 	versionCacheFile := fs.String("version-cache-file", "", "path to version disk cache file (default: same dir as package-list)")
 	check := fs.Bool("check", false, "check if cache can be built for all packages without starting the server")
@@ -53,9 +54,14 @@ func run() int {
 	default:
 		level = slog.LevelInfo
 	}
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level: level,
-	})))
+	handlerOpts := &slog.HandlerOptions{Level: level}
+	var logHandler slog.Handler
+	if strings.ToLower(*logFormat) == "json" {
+		logHandler = slog.NewJSONHandler(os.Stderr, handlerOpts)
+	} else {
+		logHandler = slog.NewTextHandler(os.Stderr, handlerOpts)
+	}
+	slog.SetDefault(slog.New(logHandler))
 
 	if *packageListPath == "" {
 		slog.Error("flag -package-list (env PACKAGE_LIST) is required")
