@@ -33,7 +33,7 @@ func run() int {
 	tlsCert := fs.String("tls-cert", "", "TLS certificate file")
 	tlsKey := fs.String("tls-key", "", "TLS key file")
 	logLevel := fs.String("log-level", "info", "log level (debug, info, warn, error)")
-	logFormat := fs.String("log-format", "logfmt", "log format (logfmt, json)")
+	logFormat := fs.String("log-format", "logfmt", "log format (logfmt, text, json)")
 	refreshIntervalStr := fs.String("refresh-interval", "5m", "interval for automatic cache refresh (0 to disable)")
 	versionCacheFile := fs.String("version-cache-file", "", "path to version disk cache file (default: same dir as package-list)")
 	check := fs.Bool("check", false, "check if cache can be built for all packages without starting the server")
