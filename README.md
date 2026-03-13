@@ -116,15 +116,29 @@ export PORT=8080                            # オプション、デフォルト:
 | 環境変数 | デフォルト | 説明 |
 |---------|-----------|------|
 | `REFRESH_INTERVAL` | `5m` | バックグラウンドキャッシュ更新間隔（`0` で無効） |
-| `VERSION_CACHE_FILE` | `<package-listと同じディレクトリ>/version_cache.json` | バージョンキャッシュのディスク保存先（空で無効） |
+| `VERSION_CACHE_FILE` | `<package-listと同じディレクトリ>/version_cache.json` | バージョンキャッシュのディスク保存先 |
 | `HANDLER_TIMEOUT` | `60s` | HTTPハンドラー全体のタイムアウト |
 | `GRACEFUL_DEGRADATION` | `false` | `true` の場合、一部プロバイダー失敗時も他の成功結果を返す |
 | `SOURCE_IDENTIFIER` | `api.winget-src` | WinGet API の SourceIdentifier フィールド値 |
 | `LOG_LEVEL` | `info` | ログレベル（`debug`, `info`, `warn`, `error`） |
+| `LOG_FORMAT` | `logfmt` | ログフォーマット（`logfmt`, `text`, `json`） |
 | `TLS_CERT` | - | TLS証明書ファイルのパス（設定時はHTTPSで起動） |
 | `TLS_KEY` | - | TLS秘密鍵ファイルのパス（`TLS_CERT`と合わせて設定） |
 
-### 3. サーバーの起動
+### 3. 設定の検証（オプション）
+
+`-check` フラグを使うと、サーバーを起動せずにパッケージリストの設定を検証できます。各パッケージのリリース一覧が取得できるか確認します。
+
+```bash
+./winget-src -check
+```
+
+```
+time=... level=INFO msg="check: ok" package=microsoft/powertoys releases=10
+time=... level=INFO msg="check: completed successfully" ok=1 total=1
+```
+
+### 4. サーバーの起動
 
 ```bash
 ./winget-src
@@ -145,7 +159,7 @@ docker run -e PACKAGE_LIST=/app/packages.yaml \
   winget-src
 ```
 
-### 4. WinGetからの利用
+### 5. WinGetからの利用
 
 `winget source add` コマンドでカスタムソースを登録します。WinGetはHTTPSのソースのみ受け付けるため、ローカル環境では証明書の準備が必要です（後述）。
 
@@ -401,7 +415,7 @@ GitHub APIはレート制限があります。トークンを設定して制限�
 
 ### パッケージ取得が遅い
 
-`CACHE_TTL`と`CACHE_CLEANUP_INTERVAL`を調整してキャッシュの有効期間を延ばすことで、外部APIへのリクエスト頻度を減らせます。
+`REFRESH_INTERVAL`を延ばすことで、外部APIへのリクエスト頻度を減らせます（デフォルト: `5m`）。
 
 ## ライセンス
 
