@@ -115,7 +115,7 @@ export PORT=8080                            # オプション、デフォルト:
 
 | 環境変数 | デフォルト | 説明 |
 |---------|-----------|------|
-| `REFRESH_INTERVAL` | `5m` | バックグラウンドキャッシュ更新間隔（`0` で無効） |
+| `REFRESH_INTERVAL` | `1h` | バックグラウンドキャッシュ更新間隔（`0` で無効） |
 | `VERSION_CACHE_FILE` | `<package-listと同じディレクトリ>/version_cache.json` | バージョンキャッシュのディスク保存先 |
 | `HANDLER_TIMEOUT` | `60s` | HTTPハンドラー全体のタイムアウト |
 | `GRACEFUL_DEGRADATION` | `false` | `true` の場合、一部プロバイダー失敗時も他の成功結果を返す |
@@ -415,7 +415,7 @@ GitHub APIはレート制限があります。トークンを設定して制限�
 
 ### パッケージ取得が遅い
 
-`REFRESH_INTERVAL`を延ばすことで、外部APIへのリクエスト頻度を減らせます（デフォルト: `5m`）。
+`REFRESH_INTERVAL`を延ばすことで、外部APIへのリクエスト頻度を減らせます（デフォルト: `1h`）。
 
 ## ライセンス
 
