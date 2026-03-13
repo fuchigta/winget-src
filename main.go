@@ -56,10 +56,14 @@ func run() int {
 	}
 	handlerOpts := &slog.HandlerOptions{Level: level}
 	var logHandler slog.Handler
-	if strings.ToLower(*logFormat) == "json" {
+	switch strings.ToLower(*logFormat) {
+	case "json":
 		logHandler = slog.NewJSONHandler(os.Stderr, handlerOpts)
-	} else {
+	case "logfmt", "text":
 		logHandler = slog.NewTextHandler(os.Stderr, handlerOpts)
+	default:
+		logHandler = slog.NewTextHandler(os.Stderr, handlerOpts)
+		slog.Warn("unknown log format, using logfmt", "format", *logFormat)
 	}
 	slog.SetDefault(slog.New(logHandler))
 

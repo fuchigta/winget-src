@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
@@ -25,28 +26,49 @@ func runCheck(ctx context.Context, packageListPath string) int {
 
 	httpClient := &http.Client{}
 
+	type result struct {
+		pkg string
+		err error
+	}
+
+	results := make([]result, len(packageList))
+	var wg sync.WaitGroup
+	wg.Add(len(packageList))
+
+	for i, entry := range packageList {
+		i, entry := i, entry
+		go func() {
+			defer wg.Done()
+			provider, err := dispatchProvider(entry, httpClient, nil)
+			if err != nil {
+				results[i] = result{pkg: entry.Id, err: err}
+				return
+			}
+
+			names, err := fetchWithRetry(ctx, entry.Id, entry.Provider, "fetch release names", func() ([]string, error) {
+				return provider.FetchReleaseNames(ctx, entry)
+			})
+			if err != nil {
+				results[i] = result{pkg: entry.Id, err: err}
+				return
+			}
+
+			slog.Info("check: ok", "package", entry.Id, "releases", len(names))
+			results[i] = result{pkg: entry.Id}
+		}()
+	}
+
+	wg.Wait()
+
 	okCount := 0
 	failCount := 0
-
-	for _, entry := range packageList {
-		provider, err := dispatchProvider(entry, httpClient, nil)
-		if err != nil {
-			slog.Error("check: failed", "package", entry.Id, "error", err)
+	for _, r := range results {
+		if r.err != nil {
+			slog.Error("check: failed", "package", r.pkg, "error", r.err)
 			failCount++
-			continue
+		} else {
+			okCount++
 		}
-
-		names, err := fetchWithRetry(ctx, entry.Id, entry.Provider, "fetch release names", func() ([]string, error) {
-			return provider.FetchReleaseNames(ctx, entry)
-		})
-		if err != nil {
-			slog.Error("check: failed", "package", entry.Id, "error", err)
-			failCount++
-			continue
-		}
-
-		slog.Info("check: ok", "package", entry.Id, "releases", len(names))
-		okCount++
 	}
 
 	total := okCount + failCount
