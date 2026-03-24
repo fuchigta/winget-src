@@ -37,6 +37,7 @@ func run() int {
 	refreshIntervalStr := fs.String("refresh-interval", "1h", "interval for automatic cache refresh (0 to disable)")
 	versionCacheFile := fs.String("version-cache-file", "", "path to version disk cache file (default: same dir as package-list)")
 	check := fs.Bool("check", false, "check if cache can be built for all packages without starting the server")
+	allowNoReleases := fs.Bool("allow-no-releases", false, "treat packages with no releases as OK during check")
 
 	if err := ff.Parse(fs, os.Args[1:], ff.WithEnvVarPrefix("")); err != nil {
 		slog.Error(err.Error())
@@ -92,7 +93,7 @@ func run() int {
 	defer stop()
 
 	if *check {
-		return runCheck(ctx, *packageListPath)
+		return runCheck(ctx, *packageListPath, *allowNoReleases)
 	}
 
 	repository, err := NewWingetSrcRepository(ctx, *packageListPath, refreshInterval, *gracefulDegradation, *versionCacheFile)

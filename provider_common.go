@@ -192,18 +192,45 @@ func buildVersionsForConfig(ctx context.Context, client *http.Client, fetcher *S
 	return versions, nil
 }
 
+// getInstallerConfig returns the installerConfig for the given installer type.
+func getInstallerConfig(installerType string) (installerConfig, error) {
+	switch installerType {
+	case InstallerTypeZipPortable:
+		return installerConfig{ext: ".zip", installerType: "zip", zipPortable: true}, nil
+	case InstallerTypeMsi:
+		return installerConfig{ext: ".msi", installerType: InstallerTypeMsi}, nil
+	case InstallerTypeExe:
+		return installerConfig{ext: ".exe", installerType: InstallerTypeExe}, nil
+	default:
+		return installerConfig{}, fmt.Errorf("unknown installer type: %s", installerType)
+	}
+}
+
 // dispatchInstallerBuilder routes to the appropriate version builder based on installer type.
 func dispatchInstallerBuilder(ctx context.Context, client *http.Client, fetcher *SHA256Fetcher, entry PackageListEntry, releases []release, targetVersions []string) ([]Version, error) {
-	switch entry.InstallerType {
-	case InstallerTypeZipPortable:
-		return buildVersionsForConfig(ctx, client, fetcher, entry, releases, installerConfig{ext: ".zip", installerType: "zip", zipPortable: true}, targetVersions)
-	case InstallerTypeMsi:
-		return buildVersionsForConfig(ctx, client, fetcher, entry, releases, installerConfig{ext: ".msi", installerType: InstallerTypeMsi}, targetVersions)
-	case InstallerTypeExe:
-		return buildVersionsForConfig(ctx, client, fetcher, entry, releases, installerConfig{ext: ".exe", installerType: InstallerTypeExe}, targetVersions)
-	default:
-		return nil, fmt.Errorf("unknown installer type: %s", entry.InstallerType)
+	cfg, err := getInstallerConfig(entry.InstallerType)
+	if err != nil {
+		return nil, err
 	}
+	return buildVersionsForConfig(ctx, client, fetcher, entry, releases, cfg, targetVersions)
+}
+
+// countMatchingReleases counts releases that have at least one asset matching
+// the installer config's extension and architecture requirements.
+// Uses the same asset matching logic as buildVersionsForConfig but without SHA256 computation.
+func countMatchingReleases(releases []release, cfg installerConfig) int {
+	count := 0
+	for _, rel := range releases {
+		for _, asset := range rel.Assets {
+			lname := strings.ToLower(asset.Name)
+			_, hasArch := detectArch(lname)
+			if hasArch && strings.HasSuffix(lname, cfg.ext) {
+				count++
+				break
+			}
+		}
+	}
+	return count
 }
 
 // computeSHA256FromURL downloads the content at url and returns its SHA-256 hex digest.

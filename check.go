@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -10,7 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func runCheck(ctx context.Context, packageListPath string) int {
+func runCheck(ctx context.Context, packageListPath string, allowNoReleases bool) int {
 	f, err := os.Open(packageListPath)
 	if err != nil {
 		slog.Error("check: failed to open package list", "error", err)
@@ -45,15 +46,43 @@ func runCheck(ctx context.Context, packageListPath string) int {
 				return
 			}
 
-			names, err := fetchWithRetry(ctx, entry.Id, entry.Provider, "fetch release names", func() ([]string, error) {
-				return provider.FetchReleaseNames(ctx, entry)
+			adapter, ok := provider.(releaseAdapter)
+			if !ok {
+				results[i] = result{pkg: entry.Id, err: fmt.Errorf("provider %T does not support release check", provider)}
+				return
+			}
+
+			cfg, err := getInstallerConfig(entry.InstallerType)
+			if err != nil {
+				results[i] = result{pkg: entry.Id, err: err}
+				return
+			}
+
+			releases, err := fetchWithRetry(ctx, entry.Id, entry.Provider, "fetch releases", func() ([]release, error) {
+				return fetchReleases(ctx, httpClient, adapter, entry)
 			})
 			if err != nil {
 				results[i] = result{pkg: entry.Id, err: err}
 				return
 			}
 
-			slog.Info("check: ok", "package", entry.Id, "releases", len(names))
+			if len(releases) == 0 {
+				if allowNoReleases {
+					slog.Warn("check: no releases found (skipped)", "package", entry.Id)
+					results[i] = result{pkg: entry.Id}
+				} else {
+					results[i] = result{pkg: entry.Id, err: fmt.Errorf("no releases found")}
+				}
+				return
+			}
+
+			matched := countMatchingReleases(releases, cfg)
+			if matched == 0 {
+				results[i] = result{pkg: entry.Id, err: fmt.Errorf("releases found (%d) but no versions could be built for installer type %q", len(releases), entry.InstallerType)}
+				return
+			}
+
+			slog.Info("check: ok", "package", entry.Id, "releases", len(releases), "matched", matched)
 			results[i] = result{pkg: entry.Id}
 		}()
 	}
