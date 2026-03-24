@@ -11,6 +11,48 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// checkPackage validates that the given entry can produce at least one buildable version.
+// Returns nil on success, or an error describing the validation failure.
+func checkPackage(ctx context.Context, httpClient *http.Client, entry PackageListEntry, allowNoReleases bool) error {
+	provider, err := dispatchProvider(entry, httpClient, nil)
+	if err != nil {
+		return err
+	}
+
+	adapter, ok := provider.(releaseAdapter)
+	if !ok {
+		return fmt.Errorf("provider %T does not support release check", provider)
+	}
+
+	cfg, err := getInstallerConfig(entry.InstallerType)
+	if err != nil {
+		return err
+	}
+
+	releases, err := fetchWithRetry(ctx, entry.Id, entry.Provider, "fetch releases", func() ([]release, error) {
+		return fetchReleases(ctx, httpClient, adapter, entry)
+	})
+	if err != nil {
+		return err
+	}
+
+	if len(releases) == 0 {
+		if allowNoReleases {
+			slog.Warn("check: no releases found (skipped)", "package", entry.Id)
+			return nil
+		}
+		return fmt.Errorf("no releases found")
+	}
+
+	matched := countMatchingReleases(releases, cfg)
+	if matched == 0 {
+		return fmt.Errorf("releases found (%d) but no versions could be built for installer type %q", len(releases), entry.InstallerType)
+	}
+
+	slog.Info("check: ok", "package", entry.Id, "releases", len(releases), "matched", matched)
+	return nil
+}
+
 func runCheck(ctx context.Context, packageListPath string, allowNoReleases bool) int {
 	f, err := os.Open(packageListPath)
 	if err != nil {
@@ -40,50 +82,8 @@ func runCheck(ctx context.Context, packageListPath string, allowNoReleases bool)
 		i, entry := i, entry
 		go func() {
 			defer wg.Done()
-			provider, err := dispatchProvider(entry, httpClient, nil)
-			if err != nil {
-				results[i] = result{pkg: entry.Id, err: err}
-				return
-			}
-
-			adapter, ok := provider.(releaseAdapter)
-			if !ok {
-				results[i] = result{pkg: entry.Id, err: fmt.Errorf("provider %T does not support release check", provider)}
-				return
-			}
-
-			cfg, err := getInstallerConfig(entry.InstallerType)
-			if err != nil {
-				results[i] = result{pkg: entry.Id, err: err}
-				return
-			}
-
-			releases, err := fetchWithRetry(ctx, entry.Id, entry.Provider, "fetch releases", func() ([]release, error) {
-				return fetchReleases(ctx, httpClient, adapter, entry)
-			})
-			if err != nil {
-				results[i] = result{pkg: entry.Id, err: err}
-				return
-			}
-
-			if len(releases) == 0 {
-				if allowNoReleases {
-					slog.Warn("check: no releases found (skipped)", "package", entry.Id)
-					results[i] = result{pkg: entry.Id}
-				} else {
-					results[i] = result{pkg: entry.Id, err: fmt.Errorf("no releases found")}
-				}
-				return
-			}
-
-			matched := countMatchingReleases(releases, cfg)
-			if matched == 0 {
-				results[i] = result{pkg: entry.Id, err: fmt.Errorf("releases found (%d) but no versions could be built for installer type %q", len(releases), entry.InstallerType)}
-				return
-			}
-
-			slog.Info("check: ok", "package", entry.Id, "releases", len(releases), "matched", matched)
-			results[i] = result{pkg: entry.Id}
+			err := checkPackage(ctx, httpClient, entry, allowNoReleases)
+			results[i] = result{pkg: entry.Id, err: err}
 		}()
 	}
 

@@ -433,6 +433,115 @@ func TestFetchVersions_NilDownloadClientFallback(t *testing.T) {
 	}
 }
 
+func TestGetInstallerConfig(t *testing.T) {
+	tests := []struct {
+		installerType string
+		wantExt       string
+		wantType      string
+		wantZip       bool
+		wantErr       bool
+	}{
+		{InstallerTypeZipPortable, ".zip", "zip", true, false},
+		{InstallerTypeMsi, ".msi", InstallerTypeMsi, false, false},
+		{InstallerTypeExe, ".exe", InstallerTypeExe, false, false},
+		{"unknown", "", "", false, true},
+	}
+	for _, tt := range tests {
+		cfg, err := getInstallerConfig(tt.installerType)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("getInstallerConfig(%q) error = %v, wantErr %v", tt.installerType, err, tt.wantErr)
+			continue
+		}
+		if err != nil {
+			continue
+		}
+		if cfg.ext != tt.wantExt || cfg.installerType != tt.wantType || cfg.zipPortable != tt.wantZip {
+			t.Errorf("getInstallerConfig(%q) = %+v, want ext=%q type=%q zip=%v", tt.installerType, cfg, tt.wantExt, tt.wantType, tt.wantZip)
+		}
+	}
+}
+
+func TestCountMatchingReleases(t *testing.T) {
+	tests := []struct {
+		name     string
+		releases []release
+		cfg      installerConfig
+		want     int
+	}{
+		{
+			name:     "no releases",
+			releases: []release{},
+			cfg:      installerConfig{ext: ".zip"},
+			want:     0,
+		},
+		{
+			name: "one release with matching asset",
+			releases: []release{
+				{Name: "v1.0.0", Assets: []releaseAsset{
+					{Name: "app_windows_x64.zip"},
+					{Name: "app_linux_x64.tar.gz"},
+				}},
+			},
+			cfg:  installerConfig{ext: ".zip"},
+			want: 1,
+		},
+		{
+			name: "release with no matching extension",
+			releases: []release{
+				{Name: "v1.0.0", Assets: []releaseAsset{
+					{Name: "app_windows_x64.tar.gz"},
+				}},
+			},
+			cfg:  installerConfig{ext: ".zip"},
+			want: 0,
+		},
+		{
+			name: "release with correct extension but no arch",
+			releases: []release{
+				{Name: "v1.0.0", Assets: []releaseAsset{
+					{Name: "app_windows.zip"},
+				}},
+			},
+			cfg:  installerConfig{ext: ".zip"},
+			want: 0,
+		},
+		{
+			name: "multiple releases some matching",
+			releases: []release{
+				{Name: "v1.0.0", Assets: []releaseAsset{
+					{Name: "app_windows_x64.zip"},
+				}},
+				{Name: "v2.0.0", Assets: []releaseAsset{
+					{Name: "app_linux_x64.tar.gz"},
+				}},
+				{Name: "v3.0.0", Assets: []releaseAsset{
+					{Name: "app_windows_arm64.zip"},
+				}},
+			},
+			cfg:  installerConfig{ext: ".zip"},
+			want: 2,
+		},
+		{
+			name: "msi config matches msi assets",
+			releases: []release{
+				{Name: "v1.0.0", Assets: []releaseAsset{
+					{Name: "app_windows_x64.msi"},
+				}},
+			},
+			cfg:  installerConfig{ext: ".msi"},
+			want: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := countMatchingReleases(tt.releases, tt.cfg)
+			if got != tt.want {
+				t.Errorf("countMatchingReleases() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
 // TestFetchVersions_ExplicitDownloadClient はdownloadClientを明示的に設定すると
 // httpClientのタイムアウトに関係なくダウンロードできることを確認するテスト（フェーズ1）。
 func TestFetchVersions_ExplicitDownloadClientSucceeds(t *testing.T) {
