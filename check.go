@@ -67,6 +67,13 @@ func runCheck(ctx context.Context, packageListPath string, allowNoReleases bool)
 		return exitErr
 	}
 
+	for _, entry := range packageList {
+		if err := validateArchitecture(entry.Architecture); err != nil {
+			slog.Error("check: invalid config", "package", entry.Id, "error", err)
+			return exitErr
+		}
+	}
+
 	httpClient := &http.Client{}
 
 	type result struct {

@@ -326,6 +326,12 @@ func NewWingetSrcRepository(ctx context.Context, packageListPath string, refresh
 		return nil, err
 	}
 
+	for _, entry := range packageList {
+		if err := validateArchitecture(entry.Architecture); err != nil {
+			return nil, fmt.Errorf("package %s: %w", entry.Id, err)
+		}
+	}
+
 	packageMap := make(map[string]PackageListEntry, len(packageList))
 	for _, entry := range packageList {
 		packageMap[strings.ToLower(entry.PackageIdentifier())] = entry

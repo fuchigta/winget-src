@@ -20,6 +20,7 @@
   license: MIT
   locale: ja-JP
   upgrade_behavior: install       # install または uninstallPrevious（省略時: install）
+  # architecture: x64            # アーキテクチャの明示指定: x64 / x86 / arm64（省略時: ファイル名から自動検出、検出不可時は x64）
   # product_code: "{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}"  # MSI の ProductCode GUID（任意）
 
 # GitHub プロバイダーの例（zip-portable形式）

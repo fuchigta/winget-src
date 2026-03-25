@@ -93,6 +93,7 @@ docker build -t winget-src .
 | `publisher` | ✓ | 発行者名 |
 | `description` | ✓ | パッケージの説明 |
 | `installer_type` | ✓ | インストーラー形式（`zip-portable`、`msi`、`exe`） |
+| `architecture` | - | アーキテクチャの明示指定（`x64`、`x86`、`arm64`、省略時: ファイル名から自動検出、検出不可時は`x64`） |
 | `token` | - | 認証トークン（プライベートリポジトリやレート制限緩和に使用） |
 | `token_env` | - | 認証トークンを読み込む環境変数名（`token` より優先度低） |
 | `license` | - | ライセンス情報（例: `MIT`） |

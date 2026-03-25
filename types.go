@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 )
@@ -30,6 +31,7 @@ type PackageListEntry struct {
 	Token          string `yaml:"token"`
 	TokenEnv       string `yaml:"token_env"`
 	InstallerType   string `yaml:"installer_type"`
+	Architecture    string `yaml:"architecture"`
 	Locale          string `yaml:"locale"`
 	Scope           string `yaml:"scope"`
 	UpgradeBehavior string `yaml:"upgrade_behavior"`
@@ -70,6 +72,17 @@ func (e PackageListEntry) GetUpgradeBehavior() string {
 		return e.UpgradeBehavior
 	}
 	return "install"
+}
+
+// validateArchitecture returns an error if the given architecture value is not valid.
+// Valid values are "", "x64", "x86", and "arm64". An empty string means auto-detect from filename.
+func validateArchitecture(arch string) error {
+	switch arch {
+	case "", "x64", "x86", "arm64":
+		return nil
+	default:
+		return fmt.Errorf("invalid architecture %q: must be one of x64, x86, arm64", arch)
+	}
 }
 
 // GetToken returns the token for this entry. Token takes precedence over TokenEnv.

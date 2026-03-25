@@ -464,6 +464,90 @@ func TestFetchVersions_NilDownloadClientFallback(t *testing.T) {
 	}
 }
 
+func TestBuildVersions_ExplicitArchitecture(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "aaaa myapp_windows.msi")
+	}))
+	defer ts.Close()
+
+	entry := PackageListEntry{Name: "myapp", Architecture: "arm64"}
+	releases := []release{
+		{
+			Name: "v1.0.0",
+			Assets: []releaseAsset{
+				{Name: "checksums.txt", DownloadUrl: ts.URL, IsChecksum: true},
+				{Name: "myapp_windows.msi", DownloadUrl: "https://example.com/myapp_windows.msi"},
+			},
+		},
+	}
+
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), nil, entry, releases, installerConfig{ext: ".msi", installerType: "msi"}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(versions) != 1 || len(versions[0].Installers) != 1 {
+		t.Fatalf("expected 1 version with 1 installer")
+	}
+
+	if versions[0].Installers[0].Architecture != "arm64" {
+		t.Errorf("expected Architecture 'arm64', got '%s'", versions[0].Installers[0].Architecture)
+	}
+}
+
+func TestBuildVersions_ExplicitArchOverridesDetection(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "cccc myapp_windows_x64.msi")
+	}))
+	defer ts.Close()
+
+	entry := PackageListEntry{Name: "myapp", Architecture: "x86"}
+	releases := []release{
+		{
+			Name: "v1.0.0",
+			Assets: []releaseAsset{
+				{Name: "checksums.txt", DownloadUrl: ts.URL, IsChecksum: true},
+				{Name: "myapp_windows_x64.msi", DownloadUrl: "https://example.com/myapp_windows_x64.msi"},
+			},
+		},
+	}
+
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), nil, entry, releases, installerConfig{ext: ".msi", installerType: "msi"}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(versions) != 1 || len(versions[0].Installers) != 1 {
+		t.Fatalf("expected 1 version with 1 installer")
+	}
+
+	if versions[0].Installers[0].Architecture != "x86" {
+		t.Errorf("expected Architecture 'x86' (explicit override), got '%s'", versions[0].Installers[0].Architecture)
+	}
+}
+
+func TestValidateArchitecture(t *testing.T) {
+	tests := []struct {
+		arch    string
+		wantErr bool
+	}{
+		{"", false},
+		{"x64", false},
+		{"x86", false},
+		{"arm64", false},
+		{"amd64", true},
+		{"i386", true},
+		{"arm", true},
+		{"invalid", true},
+	}
+	for _, tt := range tests {
+		err := validateArchitecture(tt.arch)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("validateArchitecture(%q) error = %v, wantErr %v", tt.arch, err, tt.wantErr)
+		}
+	}
+}
+
 func TestGetInstallerConfig(t *testing.T) {
 	tests := []struct {
 		installerType string

@@ -132,12 +132,18 @@ func buildVersionsForConfig(ctx context.Context, client *http.Client, fetcher *S
 		installers := []Installer{}
 		for _, asset := range rel.Assets {
 			lname := strings.ToLower(asset.Name)
-			arch, hasArch := detectArch(lname)
 			if !strings.HasSuffix(lname, cfg.ext) {
 				continue
 			}
-			if !hasArch {
-				arch = "x64"
+			var arch string
+			if entry.Architecture != "" {
+				arch = entry.Architecture
+			} else {
+				hasArch := false
+				arch, hasArch = detectArch(lname)
+				if !hasArch {
+					arch = "x64"
+				}
 			}
 			sha256hex := checksums[asset.Name]
 			if sha256hex == "" {
