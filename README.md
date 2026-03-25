@@ -433,9 +433,9 @@ winget-srcがGitHub/GitLabリリースを正しく認識するために、パッ
 ```
 myapp_windows_x64.msi      ✓ x64 として認識
 myapp_windows_arm64.zip    ✓ arm64 として認識
-myapp_amd64.exe            ✓ x64 として認識（windows 不要）
+myapp_amd64.exe            ✓ x64 として認識
 myapp_windows.msi          ✓ x64 としてデフォルト処理
-myapp.msi                  ✗ windows もアーキテクチャキーワードもなし → スキップ
+myapp.msi                  ✓ x64 としてデフォルト処理（拡張子だけで判定）
 myapp_linux_x64.tar.gz     ✗ 拡張子が対象外 → スキップ
 ```
 

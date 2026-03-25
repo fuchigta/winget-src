@@ -133,7 +133,7 @@ func buildVersionsForConfig(ctx context.Context, client *http.Client, fetcher *S
 		for _, asset := range rel.Assets {
 			lname := strings.ToLower(asset.Name)
 			arch, hasArch := detectArch(lname)
-			if !((strings.Contains(lname, "windows") || hasArch) && strings.HasSuffix(lname, cfg.ext)) {
+			if !strings.HasSuffix(lname, cfg.ext) {
 				continue
 			}
 			if !hasArch {
@@ -223,8 +223,7 @@ func countMatchingReleases(releases []release, cfg installerConfig) int {
 	for _, rel := range releases {
 		for _, asset := range rel.Assets {
 			lname := strings.ToLower(asset.Name)
-			_, hasArch := detectArch(lname)
-			if (strings.Contains(lname, "windows") || hasArch) && strings.HasSuffix(lname, cfg.ext) {
+			if strings.HasSuffix(lname, cfg.ext) {
 				count++
 				break
 			}
