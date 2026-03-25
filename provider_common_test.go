@@ -343,6 +343,37 @@ func TestBuildInstallerVersions_CustomScope(t *testing.T) {
 	}
 }
 
+func TestBuildVersions_NoArchDefaultsToX64(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "aaaa myapp_windows.msi")
+	}))
+	defer ts.Close()
+
+	entry := PackageListEntry{Name: "myapp"}
+	releases := []release{
+		{
+			Name: "v1.0.0",
+			Assets: []releaseAsset{
+				{Name: "checksums.txt", DownloadUrl: ts.URL, IsChecksum: true},
+				{Name: "myapp_windows.msi", DownloadUrl: "https://example.com/myapp_windows.msi"},
+			},
+		},
+	}
+
+	versions, err := buildVersionsForConfig(context.Background(), ts.Client(), nil, entry, releases, installerConfig{ext: ".msi", installerType: "msi"}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(versions) != 1 || len(versions[0].Installers) != 1 {
+		t.Fatalf("expected 1 version with 1 installer, got %d versions", len(versions))
+	}
+
+	if versions[0].Installers[0].Architecture != "x64" {
+		t.Errorf("expected Architecture 'x64', got '%s'", versions[0].Installers[0].Architecture)
+	}
+}
+
 func TestComputeSHA256FromURL(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("hello"))
@@ -496,14 +527,14 @@ func TestCountMatchingReleases(t *testing.T) {
 			want: 0,
 		},
 		{
-			name: "release with correct extension but no arch",
+			name: "release with correct extension but no arch defaults to x64",
 			releases: []release{
 				{Name: "v1.0.0", Assets: []releaseAsset{
 					{Name: "app_windows.zip"},
 				}},
 			},
 			cfg:  installerConfig{ext: ".zip"},
-			want: 0,
+			want: 1,
 		},
 		{
 			name: "multiple releases some matching",
