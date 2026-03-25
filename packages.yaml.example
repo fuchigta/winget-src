@@ -51,13 +51,3 @@
 #  token: ""
 #  installer_type: exe
 
-# GitLab プロバイダーの例（zip-portable形式）
-#- provider: gitlab
-#  id: myorg/myapp               # GitLab のプロジェクトパス → WinGet identifier: myorg.myapp
-#  name: MyApp
-#  publisher: MyOrg
-#  description: My application
-#  endpoint: https://gitlab.com  # GitLab インスタンスの URL（セルフホストの場合は変更）
-#  project_id: 12345678          # GitLab プロジェクトID（数値）
-#  token: ""                     # プライベートプロジェクトの場合は PRIVATE-TOKEN を設定
-#  installer_type: zip-portable
