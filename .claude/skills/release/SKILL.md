@@ -72,7 +72,7 @@ git push origin v<version>
 
 ```bash
 # timeout: 600000 を指定すること（Bash ツールの上限 = 10分）
-bash "<SKILL_BASE_DIR>/scripts/wait-workflows.sh"
+bash ".claude/skills/release/scripts/wait-workflows.sh"
 ```
 
 - 終了コード `0`: 成功 → Step 5 へ
