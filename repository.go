@@ -327,6 +327,9 @@ func NewWingetSrcRepository(ctx context.Context, packageListPath string, refresh
 	}
 
 	for _, entry := range packageList {
+		if err := validateEntry(entry); err != nil {
+			return nil, fmt.Errorf("package %s: %w", entry.Id, err)
+		}
 		if err := validateArchitecture(entry.Architecture); err != nil {
 			return nil, fmt.Errorf("package %s: %w", entry.Id, err)
 		}

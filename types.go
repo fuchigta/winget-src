@@ -74,6 +74,26 @@ func (e PackageListEntry) GetUpgradeBehavior() string {
 	return "install"
 }
 
+// validateEntry returns an error if any required field in the entry is missing.
+func validateEntry(entry PackageListEntry) error {
+	required := []struct {
+		name  string
+		value string
+	}{
+		{"id", entry.Id},
+		{"provider", entry.Provider},
+		{"name", entry.Name},
+		{"publisher", entry.Publisher},
+		{"installer_type", entry.InstallerType},
+	}
+	for _, f := range required {
+		if f.value == "" {
+			return fmt.Errorf("required field %q is empty", f.name)
+		}
+	}
+	return nil
+}
+
 // validateArchitecture returns an error if the given architecture value is not valid.
 // Valid values are "", "x64", "x86", and "arm64". An empty string means auto-detect from filename.
 func validateArchitecture(arch string) error {
